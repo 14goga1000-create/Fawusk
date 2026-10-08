@@ -1,0 +1,10 @@
+goos: linux
+goarch: amd64
+pkg: fawusk
+cpu: Intel(R) Xeon(R) Processor @ 2.90GHz
+BenchmarkFAWFast/text/v1-2         	       1	   8496511 ns/op	1974.60 MB/s	     49513 archive-bytes	 1096696 B/op	      84 allocs/op
+BenchmarkFAWFast/text/v2-2         	       1	   7763407 ns/op	2161.06 MB/s	      4847 archive-bytes	 3798656 B/op	     117 allocs/op
+BenchmarkFAWFast/noise/v1-2        	       1	  30352766 ns/op	 552.74 MB/s	  16778717 archive-bytes	 1083880 B/op	      79 allocs/op
+BenchmarkFAWFast/noise/v2-2        	       1	  29579982 ns/op	 567.18 MB/s	  16777519 archive-bytes	 3902208 B/op	      80 allocs/op
+PASS
+ok  	fawusk	0.227s

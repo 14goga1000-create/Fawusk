@@ -1,7 +1,6 @@
-fuzz: elapsed: 0s, gathering baseline coverage: 0/87 completed
-fuzz: elapsed: 0s, gathering baseline coverage: 87/87 completed, now fuzzing with 2 workers
-fuzz: elapsed: 3s, execs: 62072 (20684/sec), new interesting: 32 (total: 119)
-fuzz: elapsed: 6s, execs: 62072 (0/sec), new interesting: 32 (total: 119)
-fuzz: elapsed: 6s, execs: 62072 (0/sec), new interesting: 32 (total: 119)
+fuzz: elapsed: 0s, gathering baseline coverage: 0/10 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 10/10 completed, now fuzzing with 2 workers
+fuzz: elapsed: 3s, execs: 27178 (9057/sec), new interesting: 4 (total: 14)
+fuzz: elapsed: 5s, execs: 45920 (8056/sec), new interesting: 8 (total: 18)
 PASS
-ok  	fawusk	6.020s
+ok  	fawusk	5.331s

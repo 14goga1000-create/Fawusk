@@ -34,3 +34,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 Resource generation uses go-winres v0.3.3 / winres v0.2.1 at build time. Those tools are not bundled with or required to run the EXE. Icons in this repository are original project assets.
+
+## Zstandard implementation
+
+The executable includes `github.com/klauspost/compress v1.20.1` (BSD-3-Clause). Its full license is in [docs/licenses/klauspost-compress.txt](docs/licenses/klauspost-compress.txt). Zstandard is an existing compression algorithm; it is not claimed as an invention of this project.
+
+The linked Zstandard implementation also includes xxhash; see [its license](docs/licenses/xxhash.txt).

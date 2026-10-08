@@ -1,1 +1,1 @@
-ok  	fawusk	1.384s
+ok  	fawusk	1.502s

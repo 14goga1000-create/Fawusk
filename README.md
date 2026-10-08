@@ -1,177 +1,163 @@
-# Fawusk — alpha 0.1
+# Fawusk — alpha 0.2
 
-**A small, portable Windows archiver with a native interface, ZIP support, and an experimental `.faw` container.**
+**A compact, portable Windows archiver with ZIP support and an experimental, streaming `.faw` format.**
 
-Windows 10 / 11 · x64 · Go · No Electron · No runtime downloads
+Windows 10 / 11 x64 · Native Win32 UI · Go · Offline
 
 [English](#english) · [Русский](#русский)
 
 ## English
 
-### What is Fawusk?
+### What's new
 
-Fawusk is an early, offline desktop archiver. Add files or folders, choose a format and compression level, and create an archive. Extraction creates a **new folder**, rather than overwriting an existing destination. The application title includes **Fawusk alpha 0.1**.
+- A smaller main window: one **Add** button, a file list, a format selector, **Pack** and **Extract**. Secondary actions live in the **…** menu.
+- Save location is requested when packing, rather than occupying the main screen.
+- **FAW 2** uses independent **1 MiB Zstandard blocks**. If compression does not shrink a block, the original block is stored instead.
+- Hashes are calculated as bytes are written/read: no additional whole-archive hashing pass for FAW 2.
+- Reused buffers, one codec worker, bounded decoder output/window, per-block CRC-32 and final SHA-256.
+- Reads old **FAW 1** archives from alpha 0.1. New FAW archives are version 2.
 
-This is a test release, not a production replacement for WinRAR or 7-Zip. Use copies of files and verify the extracted content before relying on an archive as a backup. No claim of better speed, compression, or security than those products has been established.
+This is an alpha, not a claim to outperform WinRAR or 7-Zip. The goal is a competitive archiver developed with reproducible tests, compatibility and clear trade-offs. Test on copies and verify extracted files before using archives as backups.
 
-### Features
-
-- Create and extract **ZIP** and **FAW** archives.
-- Three DEFLATE compression levels: fast (default), balanced, maximum.
-- Files, recursive folders, empty folders, and Unicode names.
-- Drag-and-drop, multiple-file selection, progress, cancellation, and background work.
-- Streaming file I/O: ordinary file contents are not loaded fully into RAM.
-- No network features, telemetry, installer, administrator requirement, or automatic file execution.
-
-| Format | Create | Extract | Notes |
-| --- | --- | --- | --- |
-| `.faw` | Yes | Yes | Versioned container, ZIP payload, SHA-256 integrity check |
-| `.zip` | Yes | Yes | STORE / DEFLATE, no encryption, no split volumes |
-| `.rar` | No | No | Visible as unavailable in the format selector; creation requires an appropriate licensed RAR implementation |
-| `.7z` | No | No | Outside this alpha's scope |
-
-**FAW is not a new compression algorithm.** Version 1 wraps a ZIP stream in a custom binary header and SHA-256 trailer. It is not simply a ZIP renamed to `.faw`. The hash detects corruption; it does **not** provide encryption or prove who created an archive. See [the format specification](docs/FAW_FORMAT.md).
+![Fawusk alpha 0.2 interface](docs/screenshot.png)
 
 ### Run
 
-1. Obtain `Fawusk-alpha-0.1.exe` from the provided release package. For a GitHub publication, the maintainer should attach it to a Release.
-2. Launch it as a normal user on Windows 10 / 11 x64. No Go installation is needed to run the EXE.
-3. Click **Добавить файлы** (Add files) or **Добавить папку** (Add folder), or drag items into the window.
-4. Choose FAW or ZIP, a compression level, and a **new** output filename outside the selected source folder.
-5. Click **Упаковать** (Pack). To extract, click **Распаковать…** and select an archive and a destination parent folder.
+Download `Fawusk-alpha-0.2.exe` and run it as a normal user on Windows 10/11 x64. No installer, Go installation, internet connection or administrator privileges are needed to run it.
 
-The UI is Russian in this alpha. **Удалить** and **Очистить** remove items from the selection only; they do not delete source files. Output archives are never deliberately overwritten. Existing extraction folders are not reused. The initial release is **unsigned**, so Windows may warn about an unknown publisher. Do not disable security protections; if you do not trust the binary, inspect and build the source instead.
+1. Click **Добавить…** → **Файлы…** or **Папку…**, or drag items into the window.
+2. Choose **FAW** or **ZIP**.
+3. Optionally choose **… → Сжатие**: fast (default), balanced or maximum.
+4. Click **Упаковать**, then choose a **new** archive name outside the selected source folder.
+5. To extract, click **Распаковать…**, select an archive and a parent folder. A new result folder is created.
 
-### Safety limits and limitations
+To remove a selected item use **… → Убрать выбранное** or Delete. **Очистить список** changes only the selection, never source files. Full paths and the last result folder are available from **…**. During work, Extract is replaced by Cancel.
 
-- At most 100,000 archive entries, 8 GiB per file, and 20 GiB total uncompressed data. ZIP central-directory data is limited to 64 MiB.
-- Rejects path traversal, absolute paths, drive/alternate-stream paths, ambiguous names, Windows device names, case-insensitive duplicate paths, and file/directory conflicts.
-- Rejects symbolic links, junctions / reparse points in selected source paths, and special files. Extraction rejects link entries and destination-parent links.
-- CRC checks on extracted files; FAW adds header CRC-32 and whole-payload SHA-256 verification.
-- Temporary output is published only after successful completion. Cancellation and ordinary errors attempt to remove temporary data. A crash or forced termination can leave temporary files.
-- Not a sandbox or antivirus. Archive contents may still be malicious; do not execute untrusted extracted files. Concurrent modification of the destination by another local process is outside the threat model.
-- No passwords, encryption, archive preview/editing, Explorer integration, split archives, RAR/7z support, or preservation of NTFS streams, ACLs, ownership, and full filesystem metadata.
-- Already-compressed media may barely shrink or become slightly larger. Maximum compression costs more CPU time. FAW hashing requires an extra read of the compressed payload.
-- The format is experimental; future compatibility is not guaranteed yet.
+The UI is Russian. The EXE is unsigned: Windows may warn about an unknown publisher. Do not disable security protections to run a binary you do not trust; inspect and build the source instead.
 
-### Build from source
+### Formats
 
-Use an up-to-date **Go 1.25 or newer** toolchain. The application itself uses only Go's standard library and Windows system APIs. A pinned resource-generation tool is downloaded at build time for the icon, version information, and manifest.
+| Format | Create | Read |
+| --- | --- | --- |
+| FAW 2 | Yes | Yes |
+| FAW 1 (alpha 0.1) | No GUI option | Yes |
+| ZIP | Yes | STORE / DEFLATE, including supported ZIP64 within alpha limits |
+| RAR / 7z | No | No |
 
-On Windows, from the repository root:
+FAW 2 is an original container using **Zstandard**, not an original compression algorithm. FAW 1 used a ZIP/DEFLATE payload. Alpha 0.1 **cannot read FAW 2**: recipients need alpha 0.2 or use ZIP. A checksum detects damage; it does not authenticate an author or encrypt data. [Format specification](docs/FAW_FORMAT.md).
+
+### Safety and limits
+
+- 100,000 entries, 8 GiB per file, 20 GiB total expanded data.
+- FAW 2: aggregate names ≤16 MiB, each name ≤3,000 UTF-8 bytes; bounded 1 MiB blocks. ZIP central directory ≤64 MiB.
+- Rejects traversal, absolute/drive/alternate-stream paths, ambiguous names, device names, duplicate case-insensitive paths, deep paths and file/directory conflicts. FAW 2 also rejects inconsistent ancestor casing.
+- Rejects source symlinks/junctions/reparse points and special files; link entries and linked destination parents are not supported.
+- Writes into temporary files/folders and publishes only after successful checks. Existing archives and result folders are not intentionally overwritten. Cancellation/errors attempt to clean temporary data; a forced termination can leave it behind.
+- Not an antivirus or sandbox. Do not execute untrusted extracted files. Concurrent tampering by another local process is outside the protection model.
+- No encryption, passwords, archive editing, Explorer integration, split volumes, solid compression, deduplication or NTFS streams/ACL preservation. FAW 2 is sequential; it has no random-access index yet.
+- Codec buffers are bounded, but total process memory also includes codecs, runtime and file metadata. Maximum compression uses more CPU. Incompressible and very small inputs can still produce a larger archive due to container overhead.
+- Formats remain experimental. Physical maximum-size files and native Windows behavior are not fully verified. See [testing](docs/TESTING.md).
+
+### Build
+
+Use an up-to-date **Go 1.25+** toolchain. Zstandard is provided by pinned `github.com/klauspost/compress v1.20.1`; dependencies are recorded in `go.mod` / `go.sum`. Resources use `go-winres v0.3.3` at build time. No third-party runtime DLL is required.
+
+Windows:
 
 ```powershell
 ./build.ps1
 ```
 
-If your PowerShell policy blocks scripts, run the individual commands below under your existing policy instead of weakening it:
+If your existing PowerShell policy blocks scripts, run these commands individually rather than weakening it:
 
 ```powershell
+go mod download
 go run github.com/tc-hib/go-winres@v0.3.3 make --arch amd64
 $env:GOOS = 'windows'
 $env:GOARCH = 'amd64'
 $env:CGO_ENABLED = '0'
-go build -trimpath -ldflags='-s -w -H=windowsgui' -o dist/Fawusk-alpha-0.1.exe .
+go build -trimpath -ldflags='-s -w -H=windowsgui' -o dist/Fawusk-alpha-0.2.exe .
 ```
 
-On Linux, cross-compile using `sh build.sh`. The result is `dist/Fawusk-alpha-0.1.exe`. Only the Windows x64 frontend is implemented.
+Linux cross-build: `sh build.sh`. Output: `dist/Fawusk-alpha-0.2.exe` and its checksum. Only the Windows x64 GUI is implemented.
 
-### Tests and publication
+### Test and benchmark
 
 ```text
 go test -v ./...
 go test -race ./...
-go test -run=^$ -fuzz=FuzzSafeName -fuzztime=10s
+go test -run=^$ -fuzz=FuzzFAW2Parser -fuzztime=10s
+go test -run=^$ -bench BenchmarkFAWFast -benchtime=3x -count=3
 ```
 
-The race detector needs a supported native C toolchain; do not use it for cross-compilation. Core tests run on Windows and Linux. The Windows UI integration test is opt-in: set `FAWUSK_GUI_EXE` to the absolute path of the built EXE, then run `go test -run TestWindowsGUI -v` on Windows.
+The race detector needs a supported native C toolchain. For the opt-in Windows GUI test set `FAWUSK_GUI_EXE` to the absolute path of the built EXE and run `go test -run TestWindowsGUI -v`. It exercises selection, the save dialog, packing and a verified FAW 2 round trip.
 
-See [the delivery test report](docs/TESTING.md) for checks actually performed and remaining gaps. GitHub Actions configuration is included, but a workflow is not evidence that CI has already passed in your repository.
+The microbenchmark compares FAW 1 and FAW 2 **fast presets** on synthetic text and random bytes, includes packing/fsync, and verifies extraction outside the timed section. Allocation figures are not peak RSS; one sample is not a performance guarantee, and this is not a WinRAR/7-Zip benchmark. [Completed checks and gaps](docs/TESTING.md).
 
-For GitHub: upload the repository contents, create tag **`v0.1.0-alpha.1`**, and attach the EXE plus its SHA-256 checksum to a Release. Do not upload your private test files or toolchain folders. Please report bugs with the Windows version, the operation, the error text, and a non-sensitive reproduction. Do not share private archive contents.
+### GitHub release
 
-### License
+Upload the source repository, create tag **`v0.2.0-alpha.2`**, and attach the EXE with `SHA256SUMS.txt` to the Release. A Russian release description is in `RELEASE_RU.md`. Included GitHub Actions has not already run in your repository. Do not upload private files, toolchain folders or local Wine data.
 
-Project source: [MIT](LICENSE). Go standard-library notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Source: [MIT](LICENSE). [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 ---
 
 ## Русский
 
-### Что такое Fawusk?
+### Что изменилось
 
-**Fawusk** — небольшой портативный архиватор для Windows с простым нативным интерфейсом. Добавьте файлы или папки, выберите формат и уровень сжатия, затем создайте архив. При распаковке создаётся **новая папка**, а существующие данные не перезаписываются. В заголовке приложения указано **Fawusk alpha 0.1**.
+**Fawusk alpha 0.2** — компактный портативный архиватор для Windows с переработанным интерфейсом и новым движком FAW.
 
-Это первая тестовая версия, а не готовая замена WinRAR или 7-Zip. Проверяйте её на копиях файлов и сравнивайте распакованные данные с исходными, прежде чем использовать архив как резервную копию. Превосходство в скорости, сжатии или безопасности над другими архиваторами пока не установлено.
+- На главном экране: **Добавить…**, список, выбор FAW/ZIP, **Упаковать** и **Распаковать…**. Остальное перенесено в **…**.
+- Место сохранения выбирается при упаковке — постоянное поле пути убрано.
+- **FAW 2** сжимает независимые блоки по **1 МиБ через Zstandard**. Если блок не уменьшается, он записывается без сжатия.
+- Контрольные суммы считаются во время записи/чтения: для FAW 2 нет дополнительного прохода по всему архиву.
+- Буферы переиспользуются, кодек работает одним потоком; выход декодера и размер окна ограничены. Есть CRC-32 блоков и итоговая SHA-256.
+- Сохранено чтение **FAW 1** из alpha 0.1. Новая упаковка FAW создаёт версию 2.
 
-### Возможности
+Мы готовим конкурентный архиватор, но пока **не заявляем превосходство над WinRAR и 7-Zip**. Это альфа: проверяйте её на копиях и сравнивайте извлечённые файлы с исходными, прежде чем полагаться на архив как на резервную копию.
 
-- Упаковка и распаковка **ZIP** и **FAW**.
-- Три уровня DEFLATE: быстрое (по умолчанию), сбалансированное и максимальное сжатие.
-- Обычные файлы любого содержимого, вложенные и пустые папки, имена на русском языке.
-- Перетаскивание, выбор нескольких файлов, прогресс, отмена и работа в фоне.
-- Потоковое чтение и запись: содержимое обычных файлов не загружается целиком в память.
-- Без сетевых функций, телеметрии, установки, прав администратора и автоматического запуска файлов.
+### Как пользоваться
 
-| Формат | Упаковка | Распаковка | Особенности |
-| --- | --- | --- | --- |
-| `.faw` | Да | Да | Версионный контейнер, ZIP-поток, контроль SHA-256 |
-| `.zip` | Да | Да | STORE / DEFLATE, без шифрования и многотомных архивов |
-| `.rar` | Нет | Нет | В списке помечен как недоступный; создание требует подходящей лицензированной реализации RAR |
-| `.7z` | Нет | Нет | Не входит в alpha 0.1 |
+Скачайте `Fawusk-alpha-0.2.exe` и запустите обычным пользователем на Windows 10/11 x64. Установка, Go, сеть и права администратора для запуска не нужны.
 
-**FAW — новый контейнер, а не новый алгоритм сжатия.** Формат версии 1 содержит собственный двоичный заголовок, ZIP-поток и контрольную сумму SHA-256. Это не просто ZIP с другим расширением. Контрольная сумма позволяет обнаружить повреждение, но **не шифрует данные и не подтверждает авторство**. Подробнее: [спецификация FAW](docs/FAW_FORMAT.md).
+1. **Добавить… → Файлы… / Папку…**, либо перетащите объекты в окно.
+2. Выберите **FAW** или **ZIP**.
+3. При необходимости откройте **… → Сжатие**: быстрое (по умолчанию), сбалансированное или максимальное.
+4. Нажмите **Упаковать** и выберите новое имя архива вне исходной папки.
+5. Для распаковки нажмите **Распаковать…**, выберите архив и папку, внутри которой появится новая папка с результатом.
 
-### Как запустить
+Убрать выбранное можно через **…** или Delete. **Очистить список** не удаляет исходные файлы. Полный путь и открытие папки результата доступны в **…**. Во время работы кнопка распаковки заменяется на отмену.
 
-1. Скачайте `Fawusk-alpha-0.1.exe` из пакета релиза. При публикации на GitHub автору нужно прикрепить EXE к Release.
-2. Запустите его обычным пользователем на Windows 10 / 11 x64. Для запуска EXE установка Go не нужна.
-3. Нажмите **Добавить файлы** или **Добавить папку**, либо перетащите объекты в окно.
-4. Выберите FAW или ZIP, уровень сжатия и **новое** имя архива вне выбранной исходной папки.
-5. Нажмите **Упаковать**. Для распаковки нажмите **Распаковать…**, выберите архив и папку, внутри которой появится новая папка с результатом.
+EXE не подписан: Windows может предупредить о неизвестном издателе. Не отключайте защиту для запуска недоверенной сборки; при сомнениях проверяйте исходники и собирайте самостоятельно.
 
-Интерфейс этой альфы — на русском языке. **Удалить** и **Очистить** меняют только список выбора, не удаляя исходные файлы. Архивы намеренно не перезаписываются; существующие папки распаковки не используются повторно. Первая сборка **не подписана** цифровой подписью, поэтому Windows может предупредить о неизвестном издателе. Не отключайте защиту; если не доверяете EXE, проверьте исходники и соберите программу самостоятельно.
+### Форматы и совместимость
+
+- **FAW 2** — упаковка и распаковка.
+- **FAW 1** — чтение старых архивов; отдельной кнопки создания старого формата нет.
+- **ZIP** — упаковка и распаковка STORE/DEFLATE, ZIP64 в пределах поддерживаемых лимитов.
+- **RAR и 7z** пока не поддерживаются.
+
+FAW 2 — собственный контейнер на основе Zstandard, **не новый алгоритм сжатия**. Alpha 0.1 **не читает FAW 2**: для передачи используйте alpha 0.2 или ZIP. Контрольная сумма не шифрует архив и не подтверждает его автора. Подробнее: [спецификация](docs/FAW_FORMAT.md).
 
 ### Защита и ограничения
 
-- До 100 000 элементов, до 8 ГиБ на файл и 20 ГиБ распакованных данных на архив. Каталог ZIP — до 64 МиБ.
-- Отклоняются выход за папку через `../`, абсолютные пути, пути дисков и альтернативных потоков, неоднозначные имена, имена устройств Windows, дубликаты без учёта регистра и конфликты файлов с папками.
-- Не поддерживаются символические ссылки, junction / reparse points в исходных путях и специальные файлы. При распаковке отклоняются ссылочные записи и ссылки в родительском пути назначения.
-- CRC при извлечении файлов; для FAW дополнительно CRC-32 заголовка и SHA-256 всего сжатого потока.
-- Результат публикуется после успешного завершения. При отмене и обычных ошибках выполняется попытка удалить временные данные. После аварии или принудительного завершения они могут остаться.
-- Это не песочница и не антивирус: не запускайте недоверенные извлечённые файлы. Изменение папки назначения другим локальным процессом во время работы не входит в модель защиты.
-- Пока нет паролей, шифрования, просмотра и редактирования содержимого, интеграции с Проводником, многотомных архивов, RAR/7z и сохранения NTFS-потоков, ACL, владельцев и всех метаданных файловой системы.
-- Уже сжатые фото, видео и другие данные могут почти не уменьшиться или немного увеличиться. Максимальное сжатие требует больше CPU. Проверка FAW дополнительно читает сжатый поток.
-- Формат экспериментальный: совместимость будущих версий пока не гарантируется.
+До **100 000 элементов, 8 ГиБ на файл и 20 ГиБ распакованных данных**. Для FAW 2 суммарный размер имён ограничен 16 МиБ, отдельное имя — 3 000 UTF-8 байт; для ZIP каталог ограничен 64 МиБ.
 
-### Сборка из исходников
+Проверяются опасные и неоднозначные пути, дубликаты без учёта регистра, имена устройств и конфликты файлов/папок. Символические ссылки, junction/reparse points и специальные файлы не предназначены для упаковки. Результат публикуется после проверок без намеренной перезаписи существующих файлов. При отмене выполняется попытка удалить временные данные; после аварии они могут остаться.
 
-Нужен актуальный **Go 1.25 или новее**. Само приложение использует только стандартную библиотеку Go и системные API Windows. Для иконки, версии и манифеста во время сборки скачивается инструмент генерации ресурсов с фиксированной версией.
+Это не антивирус и не песочница. Не запускайте недоверенные извлечённые файлы. Изменение папки другим локальным процессом во время работы не входит в модель защиты.
 
-В Windows, из корня репозитория:
+Пока нет паролей, шифрования, просмотра/редактирования архивов, интеграции с Проводником, многотомных архивов, solid-сжатия, дедупликации, сохранения NTFS-потоков/ACL и индекса произвольного доступа FAW 2. Память процесса включает не только блочные буферы, но и кодек, среду выполнения и сведения о файлах. Максимальное сжатие требует больше CPU; маленькие и несжимаемые данные могут увеличиться из-за служебных записей.
 
-```powershell
-./build.ps1
-```
+### Сборка и тестирование
 
-Если политика PowerShell запрещает запуск скрипта, выполните отдельные команды из английского раздела, не ослабляя политику. В Linux для кросс-компиляции используйте `sh build.sh`. Результат: `dist/Fawusk-alpha-0.1.exe`. Графическая версия реализована только для Windows x64.
+Нужен актуальный **Go 1.25+**. Zstandard: зафиксированный `klauspost/compress v1.20.1`, ресурсы: `go-winres v0.3.3`. Зависимости скачиваются при сборке, но для запуска EXE сторонние DLL не нужны.
 
-### Тестирование и GitHub
+Windows: `./build.ps1`; Linux: `sh build.sh`. Если политика PowerShell запрещает скрипт, выполните команды из английского раздела, не ослабляя политику. Результат — `dist/Fawusk-alpha-0.2.exe` и SHA-256.
 
-Основные команды:
+Команды тестов и микробенчмарка — в английском разделе. Измерения на синтетических данных не являются сравнением с WinRAR/7-Zip или гарантией скорости на вашем ПК. Проверки выполнены на Linux и через Wine; полноценный запуск на настоящей Windows, включая junction и разные DPI, ещё нужен. [Отчёт](docs/TESTING.md).
 
-```text
-go test -v ./...
-go test -race ./...
-go test -run=^$ -fuzz=FuzzSafeName -fuzztime=10s
-```
+Для GitHub: загрузите исходники, создайте тег **`v0.2.0-alpha.2`**, прикрепите EXE и `SHA256SUMS.txt` к Release. Русский текст релиза — `RELEASE_RU.md`. Не публикуйте личные тестовые данные и папки инструментов.
 
-Для проверки гонок нужен поддерживаемый нативный C-компилятор; этот режим не предназначен для кросс-компиляции. Тесты ядра работают на Windows и Linux. Для интеграционного теста окна в Windows задайте `FAWUSK_GUI_EXE` — абсолютный путь к собранному EXE — и выполните `go test -run TestWindowsGUI -v`.
-
-Результаты реально выполненных проверок и оставшиеся пробелы описаны в [отчёте](docs/TESTING.md). Конфигурация GitHub Actions приложена, но это не означает, что CI уже успешно отработал в вашем репозитории.
-
-Для публикации загрузите содержимое репозитория, создайте тег **`v0.1.0-alpha.1`** и прикрепите EXE с его SHA-256 к Release. Не публикуйте личные тестовые файлы и папки компилятора. В сообщении об ошибке укажите версию Windows, действие, текст ошибки и безопасный пример воспроизведения — без личных данных.
-
-### Лицензия
-
-Исходный код проекта — [MIT](LICENSE). Уведомления о стандартной библиотеке Go — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Лицензия исходников — [MIT](LICENSE); зависимости — [уведомления](THIRD_PARTY_NOTICES.md).

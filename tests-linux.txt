@@ -5,13 +5,13 @@
 === RUN   TestRoundTrip/faw-level-1
 === RUN   TestRoundTrip/faw-level-6
 === RUN   TestRoundTrip/faw-level-9
---- PASS: TestRoundTrip (0.03s)
-    --- PASS: TestRoundTrip/zip-level-1 (0.01s)
-    --- PASS: TestRoundTrip/zip-level-6 (0.01s)
-    --- PASS: TestRoundTrip/zip-level-9 (0.01s)
+--- PASS: TestRoundTrip (0.04s)
+    --- PASS: TestRoundTrip/zip-level-1 (0.00s)
+    --- PASS: TestRoundTrip/zip-level-6 (0.00s)
+    --- PASS: TestRoundTrip/zip-level-9 (0.00s)
     --- PASS: TestRoundTrip/faw-level-1 (0.00s)
     --- PASS: TestRoundTrip/faw-level-6 (0.00s)
-    --- PASS: TestRoundTrip/faw-level-9 (0.01s)
+    --- PASS: TestRoundTrip/faw-level-9 (0.02s)
 === RUN   TestNoOverwrite
 --- PASS: TestNoOverwrite (0.00s)
 === RUN   TestInsideSource
@@ -22,8 +22,8 @@
 --- PASS: TestTraversal (0.00s)
 === RUN   TestDuplicatesAndConflicts
 --- PASS: TestDuplicatesAndConflicts (0.00s)
-=== RUN   TestFAWIntegrity
---- PASS: TestFAWIntegrity (0.00s)
+=== RUN   TestLegacyFAWIntegrity
+--- PASS: TestLegacyFAWIntegrity (0.00s)
 === RUN   TestCRC
 --- PASS: TestCRC (0.00s)
 === RUN   TestCancel
@@ -44,6 +44,24 @@
 --- PASS: TestMidOperationCancel (0.00s)
 === RUN   TestDeclaredSizeLimit
 --- PASS: TestDeclaredSizeLimit (0.00s)
+=== RUN   TestFAW2LargeMixedBlocks
+--- PASS: TestFAW2LargeMixedBlocks (0.02s)
+=== RUN   TestFAW2IntegrityAndTruncation
+--- PASS: TestFAW2IntegrityAndTruncation (0.01s)
+=== RUN   TestFAW2MaliciousNames
+--- PASS: TestFAW2MaliciousNames (0.01s)
+=== RUN   TestFAW2DeclaredLimitsAndChunkBounds
+--- PASS: TestFAW2DeclaredLimitsAndChunkBounds (0.00s)
+=== RUN   TestFAW2ImplicitDirectories
+--- PASS: TestFAW2ImplicitDirectories (0.00s)
+=== RUN   TestFAW2DecoderBounds
+--- PASS: TestFAW2DecoderBounds (0.00s)
+=== RUN   TestDeepPathRejected
+--- PASS: TestDeepPathRejected (0.00s)
+=== RUN   TestFAW2ZstdOutputCap
+--- PASS: TestFAW2ZstdOutputCap (0.00s)
+=== RUN   TestFAW2NoOverwrite
+--- PASS: TestFAW2NoOverwrite (0.00s)
 === RUN   FuzzSafeName
 === RUN   FuzzSafeName/seed#0
 === RUN   FuzzSafeName/seed#1
@@ -54,5 +72,13 @@
     --- PASS: FuzzSafeName/seed#1 (0.00s)
     --- PASS: FuzzSafeName/seed#2 (0.00s)
     --- PASS: FuzzSafeName/seed#3 (0.00s)
+=== RUN   FuzzFAW2Parser
+=== RUN   FuzzFAW2Parser/seed#0
+=== RUN   FuzzFAW2Parser/seed#1
+=== RUN   FuzzFAW2Parser/seed#2
+--- PASS: FuzzFAW2Parser (0.00s)
+    --- PASS: FuzzFAW2Parser/seed#0 (0.00s)
+    --- PASS: FuzzFAW2Parser/seed#1 (0.00s)
+    --- PASS: FuzzFAW2Parser/seed#2 (0.00s)
 PASS
-ok  	fawusk	0.047s
+ok  	fawusk	0.107s

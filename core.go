@@ -17,7 +17,7 @@ import (
 	"unicode/utf8"
 )
 
-const appVersion = "alpha 0.1"
+const appVersion = "alpha 0.2"
 const maxFiles = 100000
 const maxTotal = uint64(20) << 30
 const maxSingle = uint64(8) << 30
@@ -49,6 +49,9 @@ func safeName(name string) (string, error) {
 		return "", errors.New("Недопустимый путь в архиве")
 	}
 	trimmed := strings.TrimSuffix(name, "/")
+	if strings.Count(trimmed, "/") > 127 {
+		return "", errors.New("Слишком глубокий путь")
+	}
 	if trimmed == "" {
 		return "", errors.New("Пустой путь в архиве")
 	}
@@ -183,6 +186,13 @@ func (c *copying) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 func pack(ctx context.Context, inputs []string, output, format string, level int, progress report) (err error) {
+	if format == "faw" {
+		return packFAW2(ctx, inputs, output, level, progress)
+	}
+	return packLegacy(ctx, inputs, output, format, level, progress)
+}
+
+func packLegacy(ctx context.Context, inputs []string, output, format string, level int, progress report) (err error) {
 	if progress == nil {
 		progress = func(int, string) {}
 	}
@@ -441,11 +451,25 @@ func equalBytes(a, b []byte) bool {
 	return v == 0
 }
 func unpack(ctx context.Context, path, dest string, progress report) (err error) {
+	f, e := os.Open(path)
+	if e != nil {
+		return e
+	}
+	var prefix [10]byte
+	_, e = f.ReadAt(prefix[:], 0)
+	f.Close()
+	if e == nil && equalBytes(prefix[:8], fawMagic[:]) && binary.LittleEndian.Uint16(prefix[8:10]) == 2 {
+		return unpackFAW2(ctx, path, dest, progress)
+	}
+	return unpackLegacy(ctx, path, dest, progress)
+}
+
+func unpackLegacy(ctx context.Context, path, dest string, progress report) (err error) {
 	if progress == nil {
 		progress = func(int, string) {}
 	}
 	if strings.EqualFold(filepath.Ext(path), ".rar") {
-		return errors.New("RAR в alpha 0.1 не поддерживается. Для тестирования используйте ZIP или FAW")
+		return errors.New("RAR в alpha 0.2 не поддерживается. Для тестирования используйте ZIP или FAW")
 	}
 	f, zr, e := archive(ctx, path, progress)
 	if e != nil {

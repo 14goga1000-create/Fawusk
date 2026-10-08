@@ -135,10 +135,10 @@ func TestDuplicatesAndConflicts(t *testing.T) {
 		}
 	}
 }
-func TestFAWIntegrity(t *testing.T) {
+func TestLegacyFAWIntegrity(t *testing.T) {
 	root, src := fixtures(t)
 	p := filepath.Join(root, "a.faw")
-	if e := pack(context.Background(), []string{src}, p, "faw", 1, nil); e != nil {
+	if e := packLegacy(context.Background(), []string{src}, p, "faw", 1, nil); e != nil {
 		t.Fatal(e)
 	}
 	b, _ := os.ReadFile(p)
@@ -157,7 +157,7 @@ func TestFAWIntegrity(t *testing.T) {
 		v[at] ^= 1
 		bad := filepath.Join(root, fmt.Sprintf("corrupt-%d.faw", at))
 		os.WriteFile(bad, v, 0600)
-		if e := unpack(context.Background(), bad, filepath.Join(root, fmt.Sprintf("d-%d", at)), nil); e == nil {
+		if e := unpackLegacy(context.Background(), bad, filepath.Join(root, fmt.Sprintf("d-%d", at)), nil); e == nil {
 			t.Errorf("corruption accepted at %d", at)
 		}
 	}

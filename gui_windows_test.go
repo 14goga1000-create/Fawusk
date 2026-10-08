@@ -17,7 +17,7 @@ func TestWindowsGUI(t *testing.T) {
 	}
 	root := t.TempDir()
 	src := filepath.Join(root, "gui-smoke.txt")
-	os.WriteFile(src, []byte("GUI integration — Fawusk alpha 0.1"), 0600)
+	os.WriteFile(src, []byte("GUI integration — Fawusk alpha 0.2"), 0600)
 	cmd := exec.Command(exe, src)
 	if e := cmd.Start(); e != nil {
 		t.Fatal(e)
@@ -28,7 +28,7 @@ func TestWindowsGUI(t *testing.T) {
 	var hwnd uintptr
 	deadline := time.Now().Add(12 * time.Second)
 	for time.Now().Before(deadline) {
-		hwnd, _, _ = find.Call(ptr(u("FawuskMainWindow")), ptr(u("Fawusk alpha 0.1")))
+		hwnd, _, _ = find.Call(ptr(u("FawuskMainWindow")), ptr(u("Fawusk alpha 0.2")))
 		if hwnd != 0 {
 			break
 		}
@@ -53,8 +53,22 @@ func TestWindowsGUI(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	post.Call(hwnd, 0x111, idPack, 0)
 	out := filepath.Join(root, "gui-smoke.faw")
+	post.Call(hwnd, 0x111, idPack, 0)
+	var dialog uintptr
+	deadline = time.Now().Add(8 * time.Second)
+	for time.Now().Before(deadline) {
+		dialog, _, _ = find.Call(ptr(u("#32770")), ptr(u("Создать архив")))
+		if dialog != 0 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if dialog == 0 {
+		t.Fatal("save dialog did not open")
+	}
+	send.Call(dialog, 0x468, 1152, ptr(u(out)))
+	post.Call(dialog, 0x111, 1, 0)
 	deadline = time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, e := os.Stat(out); e == nil {
@@ -70,8 +84,8 @@ func TestWindowsGUI(t *testing.T) {
 		t.Fatal(e)
 	}
 	b, e := os.ReadFile(filepath.Join(dest, "gui-smoke.txt"))
-	if e != nil || string(b) != "GUI integration — Fawusk alpha 0.1" {
+	if e != nil || string(b) != "GUI integration — Fawusk alpha 0.2" {
 		t.Fatal("GUI round trip mismatch", e)
 	}
-	t.Log("Window title, initial source list, primary pack action and FAW round trip passed")
+	t.Log("Window title, source list, save dialog, pack action and FAW 2 round trip passed")
 }
