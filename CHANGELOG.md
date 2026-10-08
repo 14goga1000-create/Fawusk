@@ -1,5 +1,16 @@
 # Changelog
 
+## alpha 0.3
+
+- One opened path per window; separate windows for additional paths.
+- Filesystem folder navigation, plain-file path view and external opening through Windows.
+- Verified FAW 1/2/3 and ZIP manifest browsing.
+- Modern COM file/folder/save dialogs and extended absolute paths in custom native calls.
+- FAW 3 Solid Stream: shared 8 MiB Zstandard history, compressed compact records, file CRCs and streamed SHA-256.
+- Optional per-user FAW Open-with registration without changing default UserChoice.
+- Long remote/Unicode path, browser/navigation, compatibility and FAW 3 parser tests.
+- Explicit competitor positioning against WinRAR and 7-Zip without unsupported superiority claims.
+
 ## alpha 0.2
 
 - Reduced visible controls and default window dimensions; secondary actions in menus.

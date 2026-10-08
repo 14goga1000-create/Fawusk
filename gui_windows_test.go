@@ -5,87 +5,166 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 	"unsafe"
 )
 
+func waitWindow(t *testing.T, title string) uintptr {
+	t.Helper()
+	deadline := time.Now().Add(12 * time.Second)
+	for time.Now().Before(deadline) {
+		h, _, _ := proc(user, "FindWindowW").Call(0, ptr(u(title)))
+		if h != 0 {
+			return h
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatal("window not found", title)
+	return 0
+}
 func TestWindowsGUI(t *testing.T) {
 	exe := os.Getenv("FAWUSK_GUI_EXE")
 	if exe == "" {
-		t.Skip("Set FAWUSK_GUI_EXE to opt in to the Windows GUI integration test")
+		t.Skip("Set FAWUSK_GUI_EXE to run GUI integration")
 	}
 	root := t.TempDir()
-	src := filepath.Join(root, "gui-smoke.txt")
-	os.WriteFile(src, []byte("GUI integration — Fawusk alpha 0.2"), 0600)
+	src := filepath.Join(root, "source")
+	os.MkdirAll(filepath.Join(src, "subfolder"), 0700)
+	os.WriteFile(filepath.Join(src, "hello.txt"), []byte("Fawusk alpha 0.3"), 0600)
 	cmd := exec.Command(exe, src)
 	if e := cmd.Start(); e != nil {
 		t.Fatal(e)
 	}
 	defer cmd.Wait()
 	defer cmd.Process.Kill()
-	find := proc(user, "FindWindowW")
-	var hwnd uintptr
-	deadline := time.Now().Add(12 * time.Second)
+	hwnd := waitWindow(t, "Fawusk "+appVersion)
+	dlgItem := proc(user, "GetDlgItem")
+	list, _, _ := dlgItem.Call(hwnd, idFiles)
+	field, _, _ := dlgItem.Call(hwnd, idPath)
+	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		hwnd, _, _ = find.Call(ptr(u("FawuskMainWindow")), ptr(u("Fawusk alpha 0.2")))
-		if hwnd != 0 {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	if hwnd == 0 {
-		t.Fatal("GUI did not create the expected titled window")
-	}
-	defer post.Call(hwnd, 0x10, 0, 0)
-	var title [128]uint16
-	getText.Call(hwnd, uintptr(unsafe.Pointer(&title[0])), 128)
-	if title[0] != 'F' {
-		t.Fatal("missing window title")
-	}
-	// Wait for startup arguments to populate the list before invoking the primary action.
-	getDlg := proc(user, "GetDlgItem")
-	list, _, _ := getDlg.Call(hwnd, idFiles)
-	for time.Now().Before(deadline) {
+		list, _, _ = dlgItem.Call(hwnd, idFiles)
+		field, _, _ = dlgItem.Call(hwnd, idPath)
 		n, _, _ := send.Call(list, 0x18b, 0, 0)
-		if n == 1 {
+		if n == 2 {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	out := filepath.Join(root, "gui-smoke.faw")
+	n, _, _ := send.Call(list, 0x18b, 0, 0)
+	if n != 2 {
+		t.Fatal("directory content not shown", n)
+	}
+	send.Call(list, 0x186, 0, 0)
+	post.Call(hwnd, 0x111, idFiles|(2<<16), list)
+	deadline = time.Now().Add(4 * time.Second)
+	for time.Now().Before(deadline) && !strings.HasSuffix(remoteText(field), "subfolder") {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !strings.HasSuffix(remoteText(field), "subfolder") {
+		t.Fatal("folder navigation failed", remoteText(field))
+	}
+	post.Call(hwnd, 0x111, idUp, 0)
+	deadline = time.Now().Add(4 * time.Second)
+	for time.Now().Before(deadline) && remoteText(field) != src {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if remoteText(field) != src {
+		t.Fatal("parent navigation failed", remoteText(field))
+	}
 	post.Call(hwnd, 0x111, idPack, 0)
-	var dialog uintptr
-	deadline = time.Now().Add(8 * time.Second)
-	for time.Now().Before(deadline) {
-		dialog, _, _ = find.Call(ptr(u("#32770")), ptr(u("Создать архив")))
-		if dialog != 0 {
-			break
+	dialog := waitWindow(t, "Создать архив")
+	out := filepath.Join(root, "result.faw")
+	var edit uintptr
+	cb := syscall.NewCallback(func(h, l uintptr) uintptr {
+		var cls [64]uint16
+		proc(user, "GetClassNameW").Call(h, uintptr(unsafe.Pointer(&cls[0])), 64)
+		if syscall.UTF16ToString(cls[:]) == "Edit" && strings.Contains(remoteText(h), "source") {
+			edit = h
 		}
+		return 1
+	})
+	deadline = time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && edit == 0 {
+		proc(user, "EnumChildWindows").Call(dialog, cb, 0)
 		time.Sleep(50 * time.Millisecond)
 	}
-	if dialog == 0 {
-		t.Fatal("save dialog did not open")
+	if edit == 0 {
+		t.Fatal("save filename edit not found")
 	}
-	send.Call(dialog, 0x468, 1152, ptr(u(out)))
+	setText.Call(edit, ptr(u(out)))
 	post.Call(dialog, 0x111, 1, 0)
 	deadline = time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, e := os.Stat(out); e == nil {
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 	if _, e := os.Stat(out); e != nil {
-		t.Fatal("GUI pack did not publish an archive", e)
+		t.Fatal("GUI packing did not publish", e)
 	}
 	dest := filepath.Join(root, "verified")
 	if e := unpack(context.Background(), out, dest, nil); e != nil {
 		t.Fatal(e)
 	}
-	b, e := os.ReadFile(filepath.Join(dest, "gui-smoke.txt"))
-	if e != nil || string(b) != "GUI integration — Fawusk alpha 0.2" {
+	b, e := os.ReadFile(filepath.Join(dest, "source", "hello.txt"))
+	if e != nil || string(b) != "Fawusk alpha 0.3" {
 		t.Fatal("GUI round trip mismatch", e)
 	}
-	t.Log("Window title, source list, save dialog, pack action and FAW 2 round trip passed")
+	post.Call(hwnd, 0x10, 0, 0)
+	t.Log("directory listing, child/parent navigation, modern save dialog and FAW 3 packing passed")
+}
+
+func remoteText(h uintptr) string {
+	n, _, _ := send.Call(h, 0xe, 0, 0)
+	b := make([]uint16, n+1)
+	send.Call(h, 0xd, uintptr(len(b)), uintptr(unsafe.Pointer(&b[0])))
+	return syscall.UTF16ToString(b)
+}
+
+func TestWindowsPlainFileView(t *testing.T) {
+	exe := os.Getenv("FAWUSK_GUI_EXE")
+	if exe == "" {
+		t.Skip("Set FAWUSK_GUI_EXE")
+	}
+	root := t.TempDir()
+	file := filepath.Join(root, "plain.txt")
+	os.WriteFile(file, []byte("test"), 0600)
+	cmd := exec.Command(exe, file)
+	if e := cmd.Start(); e != nil {
+		t.Fatal(e)
+	}
+	defer cmd.Wait()
+	defer cmd.Process.Kill()
+	hwnd := waitWindow(t, "Fawusk "+appVersion)
+	var field, list uintptr
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		field, _, _ = proc(user, "GetDlgItem").Call(hwnd, idPath)
+		list, _, _ = proc(user, "GetDlgItem").Call(hwnd, idFiles)
+		if field != 0 && remoteText(field) == file {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if remoteText(field) != file {
+		t.Fatal("one opened path not displayed")
+	}
+	visible, _, _ := proc(user, "IsWindowVisible").Call(list)
+	n, _, _ := send.Call(list, 0x18b, 0, 0)
+	if visible != 0 || n != 0 {
+		t.Fatal("plain file must not display directory/contents")
+	}
+	post.Call(hwnd, 0x10, 0, 0)
+}
+func TestNativePathNormalization(t *testing.T) {
+	for in, want := range map[string]string{`C:\folder\a.txt`: `\\?\C:\folder\a.txt`, `\\server\share\a.txt`: `\\?\UNC\server\share\a.txt`, `\\?\C:\folder\a.txt`: `\\?\C:\folder\a.txt`} {
+		if got := nativePath(in); got != want {
+			t.Fatalf("%q -> %q, want %q", in, got, want)
+		}
+	}
 }

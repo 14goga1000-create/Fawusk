@@ -25,7 +25,7 @@ func BenchmarkFAWFast(b *testing.B) {
 				b.Fatal(e)
 			}
 		}
-		for _, version := range []int{1, 2} {
+		for _, version := range []int{1, 2, 3} {
 			b.Run(fmt.Sprintf("%s/v%d", kind, version), func(b *testing.B) {
 				root := b.TempDir()
 				src := filepath.Join(root, "input.bin")
@@ -34,6 +34,11 @@ func BenchmarkFAWFast(b *testing.B) {
 				}
 				packFn := packLegacy
 				if version == 2 {
+					packFn = func(ctx context.Context, inputs []string, output, format string, level int, progress report) error {
+						return packFAW2(ctx, inputs, output, level, progress)
+					}
+				}
+				if version == 3 {
 					packFn = pack
 				}
 				b.ReportAllocs()

@@ -203,7 +203,10 @@ func packFAW2(ctx context.Context, inputs []string, output string, level int, pr
 }
 
 // All allocations controlled by format constants, not arbitrary archive fields.
-func unpackFAW2(ctx context.Context, archivePath, dest string, progress report) (err error) {
+func unpackFAW2(ctx context.Context, p, dest string, progress report) error {
+	return walkFAW2(ctx, p, dest, progress, nil)
+}
+func walkFAW2(ctx context.Context, archivePath, dest string, progress report, visit entryVisitor) (err error) {
 	if progress == nil {
 		progress = func(int, string) {}
 	}
@@ -234,20 +237,11 @@ func unpackFAW2(ctx context.Context, archivePath, dest string, progress report) 
 	if expectedTotal > maxTotal || expectedCount > maxFiles {
 		return errors.New("Превышен безопасный лимит FAW")
 	}
-	if _, e = os.Lstat(dest); e == nil {
-		return errors.New("Папка назначения уже существует; выберите новую")
-	} else if !os.IsNotExist(e) {
-		return e
-	}
-	parent := filepath.Dir(dest)
-	if e = ensureParents(parent); e != nil {
-		return e
-	}
-	stage, e := os.MkdirTemp(parent, ".fawusk-unpack-*")
+	sink, e := newExtractionSink(dest)
 	if e != nil {
 		return e
 	}
-	defer os.RemoveAll(stage)
+	defer sink.cleanup()
 	decoder, e := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1), zstd.WithDecoderLowmem(true), zstd.WithDecoderMaxMemory(8<<20), zstd.WithDecoderMaxWindow(fawBlockSize), zstd.WithDecodeAllCapLimit(true))
 	if e != nil {
 		return e
@@ -326,6 +320,9 @@ func unpackFAW2(ctx context.Context, archivePath, dest string, progress report) 
 			if old, exists := canonical[k]; exists && old != p {
 				return errors.New("Неоднозначный регистр пути FAW")
 			}
+			if _, exists := canonical[k]; !exists && len(canonical) >= maxFiles {
+				return errors.New("Превышен лимит компонентов путей")
+			}
 			canonical[k] = p
 			if p != name {
 				if directory, exists := types[k]; exists && !directory {
@@ -334,17 +331,16 @@ func unpackFAW2(ctx context.Context, archivePath, dest string, progress report) 
 				types[k] = true
 			}
 		}
-		target := filepath.Join(stage, filepath.FromSlash(name))
+		if visit != nil {
+			visit(archiveEntry{Name: name, Size: size, Directory: isDir})
+		}
 		if isDir {
-			if e = os.MkdirAll(target, 0700); e != nil {
+			if e = sink.directory(name); e != nil {
 				return e
 			}
 			continue
 		}
-		if e = os.MkdirAll(filepath.Dir(target), 0700); e != nil {
-			return e
-		}
-		out, e := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		out, e := sink.file(name)
 		if e != nil {
 			return e
 		}
@@ -396,7 +392,7 @@ func unpackFAW2(ctx context.Context, archivePath, dest string, progress report) 
 		}
 		if seconds >= 0 && seconds <= 253402300799 {
 			stamp := time.Unix(seconds, 0)
-			os.Chtimes(target, stamp, stamp)
+			sink.timestamp(name, stamp)
 		}
 	}
 	if total != expectedTotal || count != expectedCount {
@@ -416,7 +412,7 @@ func unpackFAW2(ctx context.Context, archivePath, dest string, progress report) 
 	if e = check(ctx); e != nil {
 		return e
 	}
-	if e = publishDirectory(stage, dest); e != nil {
+	if e = sink.publish(ctx); e != nil {
 		return e
 	}
 	progress(100, "Готово: "+dest)

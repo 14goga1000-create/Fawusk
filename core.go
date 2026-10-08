@@ -17,7 +17,7 @@ import (
 	"unicode/utf8"
 )
 
-const appVersion = "alpha 0.2"
+const appVersion = "alpha 0.3"
 const maxFiles = 100000
 const maxTotal = uint64(20) << 30
 const maxSingle = uint64(8) << 30
@@ -187,7 +187,7 @@ func (c *copying) Write(p []byte) (int, error) {
 }
 func pack(ctx context.Context, inputs []string, output, format string, level int, progress report) (err error) {
 	if format == "faw" {
-		return packFAW2(ctx, inputs, output, level, progress)
+		return packFAW3(ctx, inputs, output, level, progress)
 	}
 	return packLegacy(ctx, inputs, output, format, level, progress)
 }
@@ -458,18 +458,26 @@ func unpack(ctx context.Context, path, dest string, progress report) (err error)
 	var prefix [10]byte
 	_, e = f.ReadAt(prefix[:], 0)
 	f.Close()
-	if e == nil && equalBytes(prefix[:8], fawMagic[:]) && binary.LittleEndian.Uint16(prefix[8:10]) == 2 {
-		return unpackFAW2(ctx, path, dest, progress)
+	if e == nil && equalBytes(prefix[:8], fawMagic[:]) {
+		switch binary.LittleEndian.Uint16(prefix[8:10]) {
+		case 2:
+			return unpackFAW2(ctx, path, dest, progress)
+		case 3:
+			return unpackFAW3(ctx, path, dest, progress)
+		}
 	}
 	return unpackLegacy(ctx, path, dest, progress)
 }
 
-func unpackLegacy(ctx context.Context, path, dest string, progress report) (err error) {
+func unpackLegacy(ctx context.Context, path, dest string, progress report) error {
+	return walkLegacy(ctx, path, dest, progress, nil)
+}
+func walkLegacy(ctx context.Context, path, dest string, progress report, visit entryVisitor) (err error) {
 	if progress == nil {
 		progress = func(int, string) {}
 	}
 	if strings.EqualFold(filepath.Ext(path), ".rar") {
-		return errors.New("RAR в alpha 0.2 не поддерживается. Для тестирования используйте ZIP или FAW")
+		return errors.New("RAR в alpha 0.3 не поддерживается. Для тестирования используйте ZIP или FAW")
 	}
 	f, zr, e := archive(ctx, path, progress)
 	if e != nil {
@@ -481,6 +489,8 @@ func unpackLegacy(ctx context.Context, path, dest string, progress report) (err 
 	}
 	seen := map[string]bool{}
 	types := map[string]bool{}
+	guard := newNameGuard()
+	guard.byteLimit = maxDirectory
 	var total uint64
 	for _, z := range zr.File {
 		if e = check(ctx); e != nil {
@@ -488,6 +498,9 @@ func unpackLegacy(ctx context.Context, path, dest string, progress report) (err 
 		}
 		name, e := safeName(z.Name)
 		if e != nil {
+			return e
+		}
+		if e = guard.validate(name, z.FileInfo().IsDir()); e != nil {
 			return e
 		}
 		key := strings.ToLower(name)
@@ -517,20 +530,11 @@ func unpackLegacy(ctx context.Context, path, dest string, progress report) (err 
 			}
 		}
 	}
-	if _, e = os.Lstat(dest); e == nil {
-		return errors.New("Папка назначения уже существует. Выберите новое имя")
-	} else if !os.IsNotExist(e) {
-		return e
-	}
-	parent := filepath.Dir(dest)
-	if e = ensureParents(parent); e != nil {
-		return e
-	}
-	stage, e := os.MkdirTemp(parent, ".fawusk-unpack-*")
+	sink, e := newExtractionSink(dest)
 	if e != nil {
 		return e
 	}
-	defer func() { os.RemoveAll(stage) }()
+	defer sink.cleanup()
 	counter := &copying{ctx: ctx, total: int64(total), report: progress}
 	buffer := make([]byte, 128*1024)
 	for _, z := range zr.File {
@@ -538,21 +542,20 @@ func unpackLegacy(ctx context.Context, path, dest string, progress report) (err 
 			return e
 		}
 		name, _ := safeName(z.Name)
-		target := filepath.Join(stage, filepath.FromSlash(name))
+		if visit != nil {
+			visit(archiveEntry{Name: name, Size: z.UncompressedSize64, Directory: z.FileInfo().IsDir()})
+		}
 		if z.FileInfo().IsDir() {
-			if e = os.MkdirAll(target, 0700); e != nil {
+			if e = sink.directory(name); e != nil {
 				return e
 			}
 			continue
-		}
-		if e = os.MkdirAll(filepath.Dir(target), 0700); e != nil {
-			return e
 		}
 		r, e := z.Open()
 		if e != nil {
 			return e
 		}
-		w, e := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		w, e := sink.file(name)
 		if e != nil {
 			r.Close()
 			return e
@@ -571,13 +574,13 @@ func unpackLegacy(ctx context.Context, path, dest string, progress report) (err 
 			return errors.New("Размер файла не совпадает с каталогом архива")
 		}
 		if !z.Modified.IsZero() {
-			os.Chtimes(target, z.Modified, z.Modified)
+			sink.timestamp(name, z.Modified)
 		}
 	}
 	if e = check(ctx); e != nil {
 		return e
 	}
-	if e = publishDirectory(stage, dest); e != nil {
+	if e = sink.publish(ctx); e != nil {
 		return e
 	}
 	progress(100, "Готово: "+dest)

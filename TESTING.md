@@ -1,46 +1,40 @@
-# alpha 0.2 — delivery checks
+# alpha 0.3 delivery checks
 
-## Environment
+## Environment and build
 
-Go 1.27.1, Linux sandbox, Windows / amd64 cross-compilation, CGO disabled. Windows code was executed through Wine 10.0 with UTF-8 locale and inspected under Xvfb. **No native Windows 10/11 machine was used.** EXE is unsigned. No independent security audit, antivirus certification or WinRAR/7-Zip comparison is claimed.
+Go 1.27.1; Linux sandbox; Windows / amd64 cross-compilation; CGO disabled. The repository's `build.sh` built the EXE with icon, version resource, long-path-aware/as-invoker manifest. The Windows executable was run through Wine 10.0 with UTF-8 locale and inspected under Xvfb. **No native Windows 10/11 machine was available.** EXE is unsigned. No independent security audit, antivirus certification or superiority over WinRAR/7-Zip is claimed.
 
-The application was built using the repository's `build.sh`. Resource generation includes the icon, alpha 0.2 file version and as-invoker manifest. Third-party compression is pinned to klauspost/compress v1.20.1.
+## Core and compatibility
 
-## Core checks
+- ZIP and FAW round trips across fast/balanced/maximum presets, Unicode, empty files/folders and binary data.
+- FAW 1, FAW 2 and FAW 3 listing and extraction through shared validation paths.
+- FAW 3 solid multi-file round trips and a synthetic similar-file test checking that shared history helps that specific fixture. This is not a representative compression corpus or a universal ranking.
+- Header/digest/CRC corruption, truncation, unknown record/codec fields, declared quotas, deep and dangerous paths, case conflicts, duplicate entries and file/directory conflicts rejected.
+- Decoder output bounds from FAW 2 regression tests preserved. FAW 3 logical stream, window, entry and name quotas enforced; derived unique path nodes bounded as well.
+- No intentional overwrites, source-inside-output rejection, cancellation during packing/extraction and attempted temporary cleanup.
+- **Long distant Unicode destinations**: source and output in different directory trees, output/extraction paths beyond 260 characters, both ZIP and FAW; passed on Linux and Wine. This is not validation of every native Windows policy, UNC server or external application's long-path behavior.
+- Extended-path normalization tests for drive, UNC and already-prefixed native paths.
+- Linux race detector and Linux/Windows `go vet` checks passed. GUI/shared-OS paths were not race-instrumented.
+- Timed FAW 3 parser fuzzing completed without a crash. Short mutation runs are not a comprehensive audit.
 
-- ZIP and FAW round trips at fast, balanced and maximum presets; Unicode paths, empty files/directories and binary data.
-- FAW 2 multi-block files, independent blocks, mixed compressed/random data and changing output-buffer sizes.
-- FAW 1 compatibility: creation through the legacy test helper and verified reading with the current reader.
-- FAW 1 header/payload/digest corruption and ZIP CRC rejection.
-- FAW 2 header, payload/digest corruption, truncation, trailing bytes, declared-size/count/name/chunk bounds and unknown codecs.
-- Real Zstandard output exceeding the declared raw-size capacity rejected with `ErrDecoderSizeExceeded`.
-- Dangerous paths, device names, case-insensitive duplicates, inconsistent ancestor casing and file/directory conflicts rejected.
-- Existing file/directory preservation, no writing archives inside the selected source folder, cancellation during packing/extraction and temporary-data cleanup.
-- Source symlink rejection on Linux and link-entry rejection in ZIP. Native Windows source symlink/junction behavior remains unverified: this test is explicitly skipped under Wine.
-- `go test -race` passed for the Linux core suite. GUI/shared-OS integration was not race-instrumented.
-- `go vet` passed for Linux and Windows source configurations.
-- FAW 2 parser fuzzing: final timed run completed 45,920 executions with no crash. It starts from empty and non-empty valid seeds; this short run is not a comprehensive fuzzing/audit claim.
+## GUI and Windows integration
 
-## GUI checks
+Opt-in automated tests exercise one directory path, immediate children, child/parent navigation, modern IFileSaveDialog, actual packing and verified FAW 3 extraction. A separate test checks the ordinary-file view: one displayed path, no visible content list. Initial integration-test timing/control-text issues were fixed in the test harness; final tests use explicit child-window waits and cross-process WM_GETTEXT.
 
-Wine integration test exercises window title/version, initial selection, the new save dialog, packing and verified FAW 2 extraction. Visual inspection covered empty, selected, Add menu, More menu, save dialog, completed and error states. Manual Add → Files → Pack → Save produced a FAW 2 archive, and choosing an existing archive name was rejected.
+Manual inspection/checks covered folder view, archive-folder view, ordinary-file view, modern save dialog and registration feedback. A real FAW 3 generated by the writer was opened and browsed without extraction. Double-clicking an ordinary TXT path launched Wine Notepad externally after setting up a TXT association **inside the isolated Wine prefix**. Initially that prefix had no `.txt` association; the application correctly reported that Windows could not open it. A real user's default apps are never set by Fawusk for ordinary files.
 
-The main screen no longer exposes Remove, Clear, compression-level selector, persistent destination edit, Browse, Open Folder and permanent Cancel controls together. Secondary actions are in menus; destination selection is deferred until packing. Cancel is shown only during work.
+The menu action for `.faw` created `HKCU\Software\Classes\Fawusk.FAW` and `.faw\OpenWithProgids` in the isolated Wine prefix. It does not modify `.faw` default/UserChoice. The registration dialog explains that the EXE must remain at its registered location. This is opt-in registration, not an installer or a forced default-app change.
 
-## Microbenchmark
+## Measurements and remaining gaps
 
-`benchmark_test.go` includes a reproducible **fast-preset** FAW 1/2 packing microbenchmark on 16 MiB repeated text and 16 MiB random bytes. Each iteration includes planning, packing, hashing and fsync. Extraction and byte-for-byte checks are outside the timed section. Raw output from one iteration per case is included in `test-logs/benchmark.txt`.
+The source includes a fast-preset FAW 1/2/3 microbenchmark on 16 MiB synthetic repeated text and random bytes. Packing includes planning, hashing and fsync; verification runs outside the timer. Raw one-iteration output is included where available. Allocation B/op is **not peak RSS**. Warm/cache-affected Linux observations are not native Windows or competitor results. The larger solid history has real memory/workspace costs; do not market it as using less RAM than FAW 2.
 
-These are synthetic, warm/cache-affected Linux measurements, not native Windows measurements or a representative corpus. One observation per case is insufficient to make a robust speed ranking. `B/op` records allocations, **not peak RAM/RSS**. The newer codec also has allocation/workspace costs: bounded block buffers do not imply less memory than the old codec. Do not market these numbers as defeating WinRAR/7-Zip or as a universal compression/speed improvement.
+Native Windows testing, multiple DPI/monitors, actual Windows symlink/junction semantics, maximum physical file sizes, broad ZIP producers, crash/power-loss recovery, random-access design and performance/security audits remain needed. The Windows source-symlink test is explicitly skipped under Wine because its Unix-backed reparse semantics are unreliable; the Linux source-symlink and archived-link checks passed.
 
-## Remaining work
-
-Native Windows testing, symlink/junction verification, multiple DPI and monitor settings, long-path producers, crash/power-loss behavior, physical maximum-size files, broad third-party ZIP compatibility, peak RAM/CPU/disk profiling and adversarial archive auditing remain needed. There is no time/disk sandbox or authentication; configured extraction-size limits still allow sizable output. Concurrent local tampering is outside the protection model.
-
-RAR/7z, encryption, solid compression, deduplication, a random-access FAW index and Explorer integration are not implemented. FAW 2 is a sequential container using an existing codec. Alpha 0.1 cannot read it; use ZIP for older recipients.
+Solid archive browsing currently decodes/verifies the full stream before showing metadata. It does not write extracted file bytes or automatically run archive contents. There is no instant indexed browsing/selective extraction. Corruption can affect later solid data. There is no encryption, RAR/7z, archive editing, disk/time sandbox, general deduplication or protection from concurrent local tampering.
 
 ## Русский
 
-Пройдены проверки ядра на Linux и Windows-сборки через Wine, включая новый диалог сохранения и упаковку. Проверены FAW 1/2, повреждения, опасные пути, лимиты декодера, перезапись и отмена. Интерфейс осмотрен в основных состояниях.
+Ядро проверено на Linux, Windows-сборка — через Wine. Пройдены совместимость FAW 1/2/3 и ZIP, просмотр архива, навигация, современное сохранение, режим обычного файла и длинные дальние пути с кириллицей. Внешнее открытие TXT и регистрация FAW проверены в изолированном Wine; обычные ассоциации пользователя приложение не меняет.
 
-На настоящей Windows тестов пока не было; поведение junction/reparse points и разные DPI требуют проверки. Синтетические замеры приложены, но они не доказывают превосходство над конкурентами и не измеряют пиковую память. FAW 2 использует Zstandard; новых собственных алгоритмов, шифрования, solid-сжатия и дедупликации здесь нет.
+Полноценной проверки на настоящей Windows ещё не было. Проверка Windows-ссылок/junction в Wine пропущена явно. Solid может помочь похожим файлам, но требует истории и последовательного чтения; универсальное уменьшение, меньшая память и превосходство над WinRAR/7-Zip не доказаны. Логи приложены; включённая конфигурация GitHub Actions ещё не выполнялась в опубликованном репозитории.

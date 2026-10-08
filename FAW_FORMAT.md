@@ -1,62 +1,52 @@
-# FAW 2 binary format
+# FAW 3 Solid Stream
 
-FAW 2 is a sequential streaming container using independent Zstandard / STORE blocks. It is not ZIP with another extension. All integers are little-endian. The writer uses bounded reused buffers and writes the integrity digest in the same pass. The reader extracts to a temporary directory and publishes only after complete validation.
+FAW 3 uses a versioned container and a streaming Zstandard payload with shared history across file boundaries. It is not an invented codec or ZIP renamed. All fixed integers are little-endian. Variable integers use unsigned LEB128 (Go `binary.PutUvarint` / `ReadUvarint`, maximum 10 bytes).
 
 ## Header (32 bytes)
 
-| Offset | Size | Field |
+| Offset | Bytes | Field |
 | --- | --- | --- |
-| 0 | 8 | ASCII `FAWUSK` + CR LF, bytes `46 41 57 55 53 4b 0d 0a` |
-| 8 | 2 | Version = 2 |
+| 0 | 8 | ASCII `FAWUSK` + CR LF |
+| 8 | 2 | Version = 3 |
 | 10 | 2 | Flags = 0; nonzero rejected |
-| 12 | 4 | Block-size bound = 1,048,576 bytes; other values rejected |
-| 16 | 8 | Sum of original regular-file sizes |
-| 24 | 4 | Number of file and directory entries |
+| 12 | 4 | Window bound = 8,388,608 bytes; other values rejected |
+| 16 | 8 | Total original regular-file size |
+| 24 | 4 | Entry count (files + directories) |
 | 28 | 4 | IEEE CRC-32 of header bytes 0–27 |
 
-## Entries
+## Compressed stream
 
-Each entry begins with a one-byte kind: `1` = directory, `2` = regular file. It is followed by:
+Between the header and the last 32 bytes is a Zstandard stream. The writer emits one frame with an 8 MiB configured history and one codec worker. The reader supports a Zstandard stream with the same window bound, one decoder worker and a configured 32 MiB decoder memory ceiling (not total RSS). Zstandard may internally store incompressible blocks. External dictionaries are not defined.
 
-| Size | Field |
-| --- | --- |
-| 4 | UTF-8 name length, 1…3,000 bytes |
-| 8 | Original size; zero for directories |
-| 8 | Signed Unix modification timestamp in seconds, encoded as its two's-complement uint64 bit pattern |
-| name length | Relative UTF-8 path, `/` separators, no trailing slash |
+Decoded entries:
 
-No link, device, stream, permission or arbitrary metadata records are defined. Paths undergo portable Windows-oriented validation. Explicit duplicates and file/directory conflicts are rejected; parent directories may be implicitly created. Inconsistent casing of path ancestors is rejected.
+1. One byte: `1` directory, `2` regular file, `0` end.
+2. Uvarint: UTF-8 name length (1…3,000).
+3. Uvarint: original size (0 for directories).
+4. Uvarint: ZigZag-encoded signed Unix modification timestamp in seconds: `uint64(seconds<<1) ^ uint64(seconds>>63)`.
+5. Exactly name-length UTF-8 bytes, relative path with `/`, no trailing slash.
+6. For a file only: exactly original-size bytes, then 4-byte IEEE CRC-32 of those bytes. Empty-file CRC is 0.
 
-File data is a sequence of blocks that must sum exactly to the original size. An empty file has no blocks. A directory has no blocks.
+Directories have no data or CRC trailer. The terminating `0` has no additional fields. There must be no further decoded data.
 
-## Block
+## Footer
 
-| Size | Field |
-| --- | --- |
-| 4 | Raw size: 1…1,048,576, no greater than the file's remaining size |
-| 4 | Stored size: 1…raw size |
-| 1 | Codec: `0` STORE, `1` Zstandard |
-| 4 | IEEE CRC-32 of raw data |
-| stored size | Data |
+The final 32 bytes are raw SHA-256 of **every preceding container byte**, including the header and complete compressed stream. The footer itself is excluded. Hashing is streamed during writing/reading, with no second full pass. Checksums do not provide authentication, encryption or malicious-content protection.
 
-STORE requires stored size = raw size. Zstandard is decoded into a capacity-limited buffer of exactly the declared raw-size allowance, with one decoder worker, a 1 MiB maximum window and an 8 MiB configured decoder memory ceiling. This ceiling is a decoder option, **not** the complete process's RSS limit. The decoded length and raw CRC must match. External dictionaries are not defined.
+Readers enforce exact entry count and total file sizes, path/duplicate/conflict checks, file CRCs, valid Zstandard termination and SHA-256 before publishing a temporary destination. Browsing uses the same validation path with an in-memory manifest and discarded file bytes, not automatic extraction/execution.
 
-The writer tries Zstandard at the chosen speed preset and uses STORE when compressed size is not smaller. Each block is independent; there is no cross-block/solid dictionary or deduplication in this version.
+## Limits
 
-## End and digest
+100,000 entries and unique path nodes (including implied parents); 8 GiB/file; 20 GiB total file data; 16 MiB aggregate name bytes; 128 path components. The decoded logical stream is additionally bounded to `header_total + 16 MiB + entry_count*35 + 1` bytes: worst-case compact record fields, file CRCs and end marker. Untrusted fields do not define unbounded allocations. Archive file size is limited to 21 GiB.
 
-After the declared number of entries, a one-byte `0` ends the entry stream. A raw 32-byte SHA-256 follows. SHA-256 covers **all bytes from the header through the terminating `0`**, excluding the digest itself. No trailing bytes are permitted.
+No random-access index, encrypted extension, password, multi-volume record or link/device record is defined. Solid history can improve related files but has memory, scan-time and damage-recovery trade-offs. Do not promise all inputs will shrink.
 
-The reader must validate total original sizes and entry count against the header, checksums, all paths and all quotas before publishing the temporary destination. Corruption detection is not authenticity: an attacker can recompute SHA-256 and CRC. There is no encryption or signature.
+## Compatibility
 
-## Alpha quotas and compatibility
-
-At most 100,000 entries, 8 GiB/file, 20 GiB total original data, 16 MiB aggregate name bytes and 128 path components. Limits are enforced regardless of the header's claims. The archive file itself is bounded to 21 GiB. There is no arbitrary-access index, split volume or encrypted extension.
-
-Alpha 0.2 reads [FAW 1](FAW_V1.md) and FAW 2; it creates FAW 2 from the GUI. Alpha 0.1 reads only FAW 1, not FAW 2. ZIP remains the compatible interchange option.
+Alpha 0.3 reads [FAW 1](FAW_V1.md), [FAW 2](FAW_V2.md), FAW 3 and supported ZIP. It writes FAW 3 from the GUI. Older alpha 0.1/0.2 do not read FAW 3; use ZIP for interchange with them.
 
 ## Русский
 
-FAW 2 — потоковый контейнер с собственным заголовком и независимыми блоками Zstandard/STORE по 1 МиБ. Несжимаемый блок записывается без сжатия. CRC-32 проверяет распакованный блок, SHA-256 — весь контейнер до завершающей записи. Хеш считается в процессе записи/чтения, без отдельного прохода по архиву. До окончания проверки данные находятся во временной папке.
+FAW 3 Solid Stream — контейнер с общей историей потокового Zstandard до 8 МиБ между файлами. Метаданные тоже сжимаются, записи используют компактные varint-поля. CRC-32 проверяет каждый файл, SHA-256 — заголовок и весь сжатый поток. Старые FAW 1/2 читаются, но старые приложения не читают FAW 3.
 
-Это не новый алгоритм сжатия и не шифрование. Alpha 0.2 читает старые FAW 1; alpha 0.1 не читает новые FAW 2. Формат пока не содержит solid-сжатия, дедупликации и индекса произвольного доступа.
+Это не новый алгоритм и не шифрование. Solid помогает похожим данным, но требует истории и последовательного чтения; уменьшение всех архивов не гарантируется. Произвольного доступа и автоматического восстановления повреждённого потока пока нет.

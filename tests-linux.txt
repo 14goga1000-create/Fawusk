@@ -8,10 +8,10 @@
 --- PASS: TestRoundTrip (0.04s)
     --- PASS: TestRoundTrip/zip-level-1 (0.00s)
     --- PASS: TestRoundTrip/zip-level-6 (0.00s)
-    --- PASS: TestRoundTrip/zip-level-9 (0.00s)
+    --- PASS: TestRoundTrip/zip-level-9 (0.01s)
     --- PASS: TestRoundTrip/faw-level-1 (0.00s)
-    --- PASS: TestRoundTrip/faw-level-6 (0.00s)
-    --- PASS: TestRoundTrip/faw-level-9 (0.02s)
+    --- PASS: TestRoundTrip/faw-level-6 (0.01s)
+    --- PASS: TestRoundTrip/faw-level-9 (0.01s)
 === RUN   TestNoOverwrite
 --- PASS: TestNoOverwrite (0.00s)
 === RUN   TestInsideSource
@@ -49,7 +49,7 @@
 === RUN   TestFAW2IntegrityAndTruncation
 --- PASS: TestFAW2IntegrityAndTruncation (0.01s)
 === RUN   TestFAW2MaliciousNames
---- PASS: TestFAW2MaliciousNames (0.01s)
+--- PASS: TestFAW2MaliciousNames (0.00s)
 === RUN   TestFAW2DeclaredLimitsAndChunkBounds
 --- PASS: TestFAW2DeclaredLimitsAndChunkBounds (0.00s)
 === RUN   TestFAW2ImplicitDirectories
@@ -62,6 +62,23 @@
 --- PASS: TestFAW2ZstdOutputCap (0.00s)
 === RUN   TestFAW2NoOverwrite
 --- PASS: TestFAW2NoOverwrite (0.00s)
+=== RUN   TestFAW3SolidAndView
+--- PASS: TestFAW3SolidAndView (0.06s)
+=== RUN   TestArchiveViewCompatibility
+--- PASS: TestArchiveViewCompatibility (0.01s)
+=== RUN   TestFAW3MaliciousRecords
+--- PASS: TestFAW3MaliciousRecords (0.01s)
+=== RUN   TestFAW3Corruption
+--- PASS: TestFAW3Corruption (0.02s)
+=== RUN   TestRemoteLongUnicodePaths
+--- PASS: TestRemoteLongUnicodePaths (0.00s)
+=== RUN   TestFAW3HeaderQuotas
+--- PASS: TestFAW3HeaderQuotas (0.00s)
+=== RUN   TestSolidSimilarFilesBenefit
+    faw3_test.go:252: Similar-file synthetic fixture only; not a universal ratio or competitor claim
+--- PASS: TestSolidSimilarFilesBenefit (0.01s)
+=== RUN   TestFAW3NonOverwrite
+--- PASS: TestFAW3NonOverwrite (0.00s)
 === RUN   FuzzSafeName
 === RUN   FuzzSafeName/seed#0
 === RUN   FuzzSafeName/seed#1
@@ -80,5 +97,9 @@
     --- PASS: FuzzFAW2Parser/seed#0 (0.00s)
     --- PASS: FuzzFAW2Parser/seed#1 (0.00s)
     --- PASS: FuzzFAW2Parser/seed#2 (0.00s)
+=== RUN   FuzzFAW3Parser
+=== RUN   FuzzFAW3Parser/seed#0
+--- PASS: FuzzFAW3Parser (0.00s)
+    --- PASS: FuzzFAW3Parser/seed#0 (0.00s)
 PASS
-ok  	fawusk	0.107s
+ok  	fawusk	0.203s

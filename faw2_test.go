@@ -25,7 +25,7 @@ func TestFAW2LargeMixedBlocks(t *testing.T) {
 		os.WriteFile(filepath.Join(src, name), b, 0600)
 	}
 	archive := filepath.Join(root, "a.faw")
-	if e := pack(context.Background(), []string{src}, archive, "faw", 6, nil); e != nil {
+	if e := packFAW2(context.Background(), []string{src}, archive, 6, nil); e != nil {
 		t.Fatal(e)
 	}
 	dest := filepath.Join(root, "out")
@@ -50,7 +50,7 @@ func TestFAW2LargeMixedBlocks(t *testing.T) {
 func TestFAW2IntegrityAndTruncation(t *testing.T) {
 	root, src := fixtures(t)
 	p := filepath.Join(root, "a.faw")
-	if e := pack(context.Background(), []string{src}, p, "faw", 1, nil); e != nil {
+	if e := packFAW2(context.Background(), []string{src}, p, 1, nil); e != nil {
 		t.Fatal(e)
 	}
 	data, _ := os.ReadFile(p)
@@ -267,7 +267,7 @@ func TestFAW2NoOverwrite(t *testing.T) {
 	root, src := fixtures(t)
 	out := filepath.Join(root, "existing.faw")
 	os.WriteFile(out, []byte("keep"), 0600)
-	if e := pack(context.Background(), []string{src}, out, "faw", 1, nil); e == nil {
+	if e := packFAW2(context.Background(), []string{src}, out, 1, nil); e == nil {
 		t.Fatal("overwrite permitted")
 	}
 	b, _ := os.ReadFile(out)
@@ -275,7 +275,7 @@ func TestFAW2NoOverwrite(t *testing.T) {
 		t.Fatal("existing file modified")
 	}
 	good := filepath.Join(root, "good.faw")
-	if e := pack(context.Background(), []string{src}, good, "faw", 1, nil); e != nil {
+	if e := packFAW2(context.Background(), []string{src}, good, 1, nil); e != nil {
 		t.Fatal(e)
 	}
 	dest := filepath.Join(root, "result")
