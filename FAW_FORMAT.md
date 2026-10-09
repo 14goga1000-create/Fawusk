@@ -1,4 +1,6 @@
-# FAW 3 Solid Stream
+# Legacy FAW 3 Solid Stream — flags=0
+
+This document describes the alpha 0.3 continuous stream, still readable by alpha 0.4. New alpha 0.4 archives use flags=1; see [indexed solid groups](FAW_V3_INDEXED.md). Nonzero flags are rejected by this legacy branch, not by the new indexed reader.
 
 FAW 3 uses a versioned container and a streaming Zstandard payload with shared history across file boundaries. It is not an invented codec or ZIP renamed. All fixed integers are little-endian. Variable integers use unsigned LEB128 (Go `binary.PutUvarint` / `ReadUvarint`, maximum 10 bytes).
 

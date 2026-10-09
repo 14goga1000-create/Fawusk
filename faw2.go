@@ -241,6 +241,7 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 	if e != nil {
 		return e
 	}
+	sink.selected = selectedName(ctx)
 	defer sink.cleanup()
 	decoder, e := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1), zstd.WithDecoderLowmem(true), zstd.WithDecoderMaxMemory(8<<20), zstd.WithDecoderMaxWindow(fawBlockSize), zstd.WithDecodeAllCapLimit(true))
 	if e != nil {

@@ -23,7 +23,21 @@ type discardCloser struct{ io.Writer }
 
 func (discardCloser) Close() error { return nil }
 
-type extractionSink struct{ stage, dest string }
+type previewWriter struct {
+	io.WriteCloser
+	bytes uint64
+}
+
+func (w *previewWriter) Write(p []byte) (int, error) {
+	if uint64(len(p)) > previewLimit-w.bytes {
+		return 0, errors.New("Просмотр ограничен 1 ГиБ")
+	}
+	n, e := w.WriteCloser.Write(p)
+	w.bytes += uint64(n)
+	return n, e
+}
+
+type extractionSink struct{ stage, dest, selected string }
 
 func newExtractionSink(dest string) (*extractionSink, error) {
 	s := &extractionSink{dest: dest}
@@ -49,23 +63,27 @@ func (s *extractionSink) cleanup() {
 	}
 }
 func (s *extractionSink) directory(name string) error {
-	if s.stage == "" {
+	if s.stage == "" || s.selected != "" {
 		return nil
 	}
 	return os.MkdirAll(filepath.Join(s.stage, filepath.FromSlash(name)), 0700)
 }
 func (s *extractionSink) file(name string) (io.WriteCloser, error) {
-	if s.stage == "" {
+	if s.stage == "" || s.selected != "" && s.selected != name {
 		return discardCloser{io.Discard}, nil
 	}
 	target := filepath.Join(s.stage, filepath.FromSlash(name))
 	if e := os.MkdirAll(filepath.Dir(target), 0700); e != nil {
 		return nil, e
 	}
-	return os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	f, e := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e == nil && s.selected != "" {
+		return &previewWriter{WriteCloser: f}, nil
+	}
+	return f, e
 }
 func (s *extractionSink) timestamp(name string, t time.Time) {
-	if s.stage != "" {
+	if s.stage != "" && (s.selected == "" || s.selected == name) {
 		os.Chtimes(filepath.Join(s.stage, filepath.FromSlash(name)), t, t)
 	}
 }
@@ -110,7 +128,11 @@ func scanArchive(ctx context.Context, p string, progress report) ([]archiveEntry
 	case 2:
 		e = walkFAW2(ctx, p, "", progress, visit)
 	case 3:
-		e = walkFAW3(ctx, p, "", progress, visit)
+		if indexed(p) {
+			e = walkIndexed(ctx, p, "", progress, visit)
+		} else {
+			e = walkFAW3(ctx, p, "", progress, visit)
+		}
 	default:
 		e = errors.New("Неподдерживаемая версия архива")
 	}

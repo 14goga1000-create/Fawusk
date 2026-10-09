@@ -52,9 +52,8 @@ func TestFAW3SolidAndView(t *testing.T) {
 		if binary.LittleEndian.Uint16(data[8:10]) != 3 {
 			t.Fatal("wrong version")
 		}
-		sum := sha256.Sum256(data[:len(data)-32])
-		if !bytes.Equal(sum[:], data[len(data)-32:]) {
-			t.Fatal("wrong digest")
+		if _, e := readCatalogue(context.Background(), out); e != nil {
+			t.Fatal(e)
 		}
 	}
 }

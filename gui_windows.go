@@ -43,6 +43,7 @@ var scale = 1.0
 var instance uintptr
 var bg, white uintptr
 var resultPath string
+var previewRoots []string
 var mu sync.Mutex
 var statusUpdates []uiUpdate
 var pendingProgress *uiUpdate
@@ -54,6 +55,7 @@ type uiUpdate struct {
 	err     error
 	path    string
 	scan    bool
+	preview bool
 	entries []archiveEntry
 }
 type point struct{ X, Y int32 }
@@ -170,7 +172,6 @@ const (
 	idExternal  = 128
 )
 
-var compressionLevel = 1
 var currentPath, currentKind, archivePrefix string
 var entries []archiveEntry
 var rows []archiveEntry
@@ -224,11 +225,14 @@ func layout() {
 	move(idMore, w-m-46, 78, 46, 40)
 	move(idPath, m, 133, full-92, 34)
 	move(idUp, w-m-80, 131, 80, 38)
-	move(idFiles, m, 185, full, h-339)
+	move(idFiles, m, 185, full, h-355)
 	move(idEmpty, m, 235, full, 38)
 	move(idEmptyHint, m, 278, full, 44)
 	y := h - 128
-	move(idFormat, m, y, 200, 180)
+	move(idFormatLabel, m, y-30, 220, 22)
+	move(idLevelLabel, m+232, y-30, 190, 22)
+	move(idFormat, m, y, 220, 180)
+	move(idLevel, m+232, y, 190, 180)
 	move(idPack, w-m-148, y-8, 148, 44)
 	move(idUnpack, w-m-148, y-8, 148, 44)
 	move(idCancel, w-m-148, y-8, 148, 44)
@@ -237,7 +241,13 @@ func layout() {
 }
 func chooseFormat() string {
 	r, _, _ := send.Call(controls[idFormat], 0x147, 0, 0)
-	if r == 1 {
+	if r > 3 {
+		return "faw3"
+	}
+	return []string{"faw3", "faw2", "faw1", "zip"}[r]
+}
+func outputExt() string {
+	if chooseFormat() == "zip" {
 		return "zip"
 	}
 	return "faw"
@@ -297,15 +307,19 @@ func refresh() {
 	}
 	show(idPack, !busy && currentKind != "archive")
 	show(idFormat, currentKind != "archive")
+	show(idLevel, currentKind != "archive")
+	show(idFormatLabel, currentKind != "archive")
+	show(idLevelLabel, currentKind != "archive")
 	show(idUnpack, !busy && currentKind == "archive")
 	enable.Call(controls[idFormat], boolParam(!busy && (currentKind == "dir" || currentKind == "file")))
+	enable.Call(controls[idLevel], boolParam(!busy && (currentKind == "dir" || currentKind == "file")))
 	enable.Call(controls[idPack], boolParam(!busy && (currentKind == "dir" || currentKind == "file")))
 	enable.Call(controls[idUnpack], boolParam(!busy && currentKind == "archive"))
 	enable.Call(controls[idUp], boolParam(!busy && (currentKind == "dir" || currentKind == "archive")))
 }
 func setBusy(b bool) {
 	busy = b
-	for _, id := range []int{idAdd, idMore, idFormat, idFiles, idUp, idPath} {
+	for _, id := range []int{idAdd, idMore, idFormat, idLevel, idFiles, idUp, idPath} {
 		enable.Call(controls[id], boolParam(!b))
 	}
 	show(idUnpack, !b)
@@ -413,9 +427,9 @@ func activateRow() {
 			archivePrefix = a.Name + "/"
 			rows = archiveChildren(entries, archivePrefix)
 			refresh()
-			status("Просмотр архива · файл для открытия нужно распаковать")
+			status("Двойной клик — просмотр медиа и документов")
 		} else {
-			status("Файл в архиве: сначала нажмите «Распаковать…»")
+			doPreview(a.Name)
 		}
 		return
 	}
@@ -487,14 +501,15 @@ func defaultOutput() string {
 	if base == "." || base == string(filepath.Separator) || strings.Contains(base, ":") {
 		base = "Fawusk-archive"
 	}
-	return filepath.Join(filepath.Dir(currentPath), base+"."+chooseFormat())
+	return filepath.Join(filepath.Dir(currentPath), base+"."+outputExt())
 }
 func doPack() {
 	if busy || (currentKind != "dir" && currentKind != "file") {
 		return
 	}
 	format := chooseFormat()
-	p := fileDialog(true, false, "Архив "+strings.ToUpper(format)+"|*."+format+"||", "Создать архив", defaultOutput(), format)
+	ext := outputExt()
+	p := fileDialog(true, false, "Архив "+strings.ToUpper(ext)+"|*."+ext+"||", "Создать архив", defaultOutput(), ext)
 	if len(p) == 0 {
 		return
 	}
@@ -504,7 +519,8 @@ func doPack() {
 		return
 	}
 	inputs := []string{currentPath}
-	level := compressionLevel
+	r, _, _ := send.Call(controls[idLevel], 0x147, 0, 0)
+	level := []int{1, 6, 9}[min(r, 2)]
 	ctx, cancel := context.WithCancel(context.Background())
 	cancelWork = cancel
 	taskKind = "pack"
@@ -553,15 +569,6 @@ func popup(id int, opening bool) {
 		addItem(menu, 0, 1002, "Папку…")
 	} else {
 		addItem(menu, 0, 1003, "Новое окно")
-		sub, _, _ := proc(user, "CreatePopupMenu").Call()
-		for i, s := range []string{"Быстрое", "Сбалансированное", "Максимальное"} {
-			f := uintptr(0)
-			if []int{1, 6, 9}[i] == compressionLevel {
-				f = 8
-			}
-			addItem(sub, f, uintptr(1005+i), s)
-		}
-		addItem(menu, 0x10, sub, "Сжатие")
 		f := uintptr(0)
 		if resultPath == "" {
 			f = 3
@@ -585,9 +592,6 @@ func popup(id int, opening bool) {
 		}
 	case 1003:
 		newWindow("")
-	case 1005, 1006, 1007:
-		compressionLevel = []int{1, 6, 9}[int(action)-1005]
-		status("Сжатие: " + []string{"быстрое", "сбалансированное", "максимальное"}[int(action)-1005])
 	case 1008:
 		openResult()
 	case 1011:
@@ -597,7 +601,7 @@ func popup(id int, opening bool) {
 			message("Регистрация FAW", "Fawusk добавлен в список «Открыть с помощью» для .faw.\n\nПриложение по умолчанию не менялось. Выберите Fawusk средствами Windows. Не перемещайте EXE после регистрации.", 0x40)
 		}
 	case 1009:
-		message("Fawusk "+appVersion, "Fawusk "+appVersion+"\n\nОдин путь на окно.\nFAW 3: solid Zstandard, компактные записи.\nЧтение FAW 1/2/3 и ZIP.\n\nПроект развивается как конкурент WinRAR и 7-Zip.\nЭто альфа, превосходство пока не доказано.\nRAR, 7z и шифрование не реализованы.", 0x40)
+		message("Fawusk "+appVersion, "Fawusk "+appVersion+"\n\nОдин путь на окно.\nFAW 3: индексированные solid-группы, SHA-256.\nЧтение FAW 1/2/3 и ZIP.\n\nПроект развивается как конкурент WinRAR и 7-Zip.\nЭто альфа, превосходство пока не доказано.\nRAR, 7z и шифрование не реализованы.", 0x40)
 	}
 }
 func pathProc(hwnd uintptr, msg uint32, wparam, lparam uintptr) uintptr {
@@ -628,11 +632,20 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		control(idFiles, "LISTBOX", "", 0x00800000|0x00200000|0x00100000|0x10000|0x101)
 		control(idEmpty, "STATIC", "Откройте файл или папку", 1)
 		control(idEmptyHint, "STATIC", "или перетащите один путь в окно", 1)
+		label(idFormatLabel, "Формат архива")
+		label(idLevelLabel, "Сжатие")
+		send.Call(controls[idFormatLabel], 0x30, smallFont, 1)
+		send.Call(controls[idLevelLabel], 0x30, smallFont, 1)
 		control(idFormat, "COMBOBOX", "", 0x3|0x10000|0x00200000)
-		for _, s := range []string{"FAW 3 · solid", "ZIP · совместимый"} {
+		for _, s := range []string{"FAW 3 · новый", "FAW 2 · блочный", "FAW 1 · совместимость", "ZIP · совместимый"} {
 			send.Call(controls[idFormat], 0x143, 0, ptr(u(s)))
 		}
 		send.Call(controls[idFormat], 0x14e, 0, 0)
+		control(idLevel, "COMBOBOX", "", 0x3|0x10000|0x00200000)
+		for _, s := range []string{"Быстрый", "Хороший", "Максимальный"} {
+			send.Call(controls[idLevel], 0x143, 0, ptr(u(s)))
+		}
+		send.Call(controls[idLevel], 0x14e, 0, 0)
 		control(idPack, "BUTTON", "Упаковать", 0x10000|1)
 		button(idUnpack, "Распаковать…")
 		button(idCancel, "Отмена")
@@ -733,7 +746,10 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 				entries = v.entries
 				rows = archiveChildren(entries, archivePrefix)
 				refresh()
-				status("Архив проверен · для открытия файла распакуйте его")
+				status("Каталог прочитан · двойной клик — безопасный просмотр")
+			} else if v.preview {
+				openExternal(v.path)
+				status("Открыт только выбранный файл · приложение Windows")
 			} else {
 				resultPath = v.path
 				status("Готово · папка результата доступна в меню «…»")
@@ -756,6 +772,9 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		proc(user, "DestroyWindow").Call(hwnd)
 		return 0
 	case 2:
+		for _, root := range previewRoots {
+			os.RemoveAll(root)
+		}
 		for _, f := range []uintptr{font, headingFont, smallFont} {
 			proc(gdi, "DeleteObject").Call(f)
 		}
@@ -826,4 +845,43 @@ func main() {
 		}
 	}
 	proc(gdi, "DeleteObject").Call(bg)
+}
+
+func doPreview(name string) {
+	if busy {
+		return
+	}
+	if e := previewAllowed(name); e != nil {
+		message("Безопасный просмотр", e.Error(), 0x40)
+		return
+	}
+	remaining := previewRoots[:0]
+	for _, r := range previewRoots {
+		if e := os.RemoveAll(r); e != nil {
+			remaining = append(remaining, r)
+		}
+	}
+	previewRoots = remaining
+	root, e := os.MkdirTemp("", "Fawusk-view-*")
+	if e != nil {
+		message("Temp", e.Error(), 0x10)
+		return
+	}
+	previewRoots = append(previewRoots, root)
+	archive := currentPath
+	ctx, cancel := context.WithCancel(context.Background())
+	cancelWork = cancel
+	taskKind = "preview"
+	setBusy(true)
+	status("Извлечение выбранного файла…")
+	go func() {
+		p, e := extractSelected(ctx, archive, name, root, notify)
+		if e != nil {
+			os.RemoveAll(root)
+		}
+		mu.Lock()
+		statusUpdates = append(statusUpdates, uiUpdate{done: true, err: e, path: p, preview: true})
+		mu.Unlock()
+		post.Call(mainWindow, wmUpdate, 0, 0)
+	}()
 }

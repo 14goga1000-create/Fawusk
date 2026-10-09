@@ -31,7 +31,7 @@ func putU(w io.Writer, n uint64) error {
 	_, e := w.Write(b[:k])
 	return e
 }
-func packFAW3(ctx context.Context, inputs []string, output string, level int, progress report) (err error) {
+func packFAW3Legacy(ctx context.Context, inputs []string, output string, level int, progress report) (err error) {
 	if progress == nil {
 		progress = func(int, string) {}
 	}
@@ -181,6 +181,9 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 	return nil
 }
 func unpackFAW3(ctx context.Context, p, dest string, progress report) error {
+	if indexed(p) {
+		return walkIndexed(ctx, p, dest, progress, nil)
+	}
 	return walkFAW3(ctx, p, dest, progress, nil)
 }
 func walkFAW3(ctx context.Context, p, dest string, progress report, visit entryVisitor) (err error) {
@@ -224,6 +227,7 @@ func walkFAW3(ctx context.Context, p, dest string, progress report, visit entryV
 	if e != nil {
 		return e
 	}
+	sink.selected = selectedName(ctx)
 	defer sink.cleanup()
 	guard := newNameGuard()
 	var total uint64

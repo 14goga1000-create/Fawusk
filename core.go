@@ -17,7 +17,7 @@ import (
 	"unicode/utf8"
 )
 
-const appVersion = "alpha 0.3"
+const appVersion = "alpha 0.4"
 const maxFiles = 100000
 const maxTotal = uint64(20) << 30
 const maxSingle = uint64(8) << 30
@@ -186,8 +186,14 @@ func (c *copying) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 func pack(ctx context.Context, inputs []string, output, format string, level int, progress report) (err error) {
-	if format == "faw" {
+	if format == "faw" || format == "faw3" {
 		return packFAW3(ctx, inputs, output, level, progress)
+	}
+	if format == "faw2" {
+		return packFAW2(ctx, inputs, output, level, progress)
+	}
+	if format == "faw1" {
+		format = "faw"
 	}
 	return packLegacy(ctx, inputs, output, format, level, progress)
 }
@@ -477,7 +483,7 @@ func walkLegacy(ctx context.Context, path, dest string, progress report, visit e
 		progress = func(int, string) {}
 	}
 	if strings.EqualFold(filepath.Ext(path), ".rar") {
-		return errors.New("RAR в alpha 0.3 не поддерживается. Для тестирования используйте ZIP или FAW")
+		return errors.New("RAR в alpha 0.4 не поддерживается. Для тестирования используйте ZIP или FAW")
 	}
 	f, zr, e := archive(ctx, path, progress)
 	if e != nil {
@@ -534,6 +540,7 @@ func walkLegacy(ctx context.Context, path, dest string, progress report, visit e
 	if e != nil {
 		return e
 	}
+	sink.selected = selectedName(ctx)
 	defer sink.cleanup()
 	counter := &copying{ctx: ctx, total: int64(total), report: progress}
 	buffer := make([]byte, 128*1024)

@@ -1,27 +1,18 @@
 # Changelog
 
-## alpha 0.3
+## Alpha 0.4
+- Indexed FAW 3 flags=1: compact catalogue, 8 MiB solid groups, bounded two-task compression pipeline, adaptive STORE, SHA-256 per group/file.
+- Fast catalogue-only listing; selected-file extraction reads only required groups for flags=1. Legacy FAW 1/2/3 and ZIP remain readable.
+- Restricted archive media/document preview to isolated Temp directories, launched with the Windows association only after verification; forbidden executables/scripts/shortcuts/macros and misleading names.
+- Fast / Good / Maximum presets and FAW 3/2/1/ZIP selectors shown directly in the spacious single-path window.
+- Expanded round-trip, multi-group, malicious-index, cancellation, viewer-policy, office active-content and fuzz tests. Synthetic 5 GiB round-trip SHA-256 passed; 5–6 second goal not reached.
+- New FAW 3 requires alpha 0.4; choose old formats for older recipients.
 
-- One opened path per window; separate windows for additional paths.
-- Filesystem folder navigation, plain-file path view and external opening through Windows.
-- Verified FAW 1/2/3 and ZIP manifest browsing.
-- Modern COM file/folder/save dialogs and extended absolute paths in custom native calls.
-- FAW 3 Solid Stream: shared 8 MiB Zstandard history, compressed compact records, file CRCs and streamed SHA-256.
-- Optional per-user FAW Open-with registration without changing default UserChoice.
-- Long remote/Unicode path, browser/navigation, compatibility and FAW 3 parser tests.
-- Explicit competitor positioning against WinRAR and 7-Zip without unsupported superiority claims.
+## Alpha 0.3
+Single-path browser, archive/folder navigation, legacy continuous FAW 3 solid stream, long Unicode paths, optional FAW Open With registration.
 
-## alpha 0.2
+## Alpha 0.2
+Minimal interface and independent FAW 2 blocks.
 
-- Reduced visible controls and default window dimensions; secondary actions in menus.
-- Destination chosen in a save dialog only when creating an archive.
-- New FAW 2 streaming container: 1 MiB Zstandard / STORE blocks, one codec worker, reusable buffers.
-- Per-block raw CRC-32 and single-pass whole-container SHA-256.
-- Bounded decoder window/output, names and path-depth limits, streaming conflict validation.
-- Read compatibility with FAW 1. Alpha 0.1 cannot read FAW 2.
-- Added mixed-size/multi-block/random-data round trips, corruption/truncation/path/decoder-bound tests and parser fuzz target.
-- Added reproducible fast-preset FAW 1/2 synthetic microbenchmark.
-
-## alpha 0.1
-
-- Initial native Windows UI, ZIP and FAW 1 (ZIP/DEFLATE payload), integrity checks and no-overwrite extraction.
+## Alpha 0.1
+Initial FAW 1 ZIP-based container and ZIP archiving.

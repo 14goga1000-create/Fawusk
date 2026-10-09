@@ -1,0 +1,6 @@
+=== RUN   TestFiveGiBOptIn
+    indexed_test.go:220: SYNTHETIC sparse zero input: bytes=5368709120 archive_bytes=1067751 pack_seconds=11.226; Linux 2 vCPU; not Windows or mixed-file performance
+    indexed_test.go:242: 5GiB original and restored SHA-256 match
+--- PASS: TestFiveGiBOptIn (34.32s)
+PASS
+ok  	fawusk	34.332s

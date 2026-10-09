@@ -30,10 +30,12 @@ jobs:
         run: ./build.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: Fawusk-alpha-0.3-windows-x64
+          name: Fawusk-alpha-0.4-windows-x64
           path: |
-            dist/Fawusk-alpha-0.3.exe
+            dist/Fawusk-alpha-0.4.exe
             dist/SHA256SUMS.txt
             README.md
             LICENSE
             THIRD_PARTY_NOTICES.md
+            docs/
+            RELEASE_RU.md
