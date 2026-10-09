@@ -102,7 +102,7 @@ func secureUnpackWithConsent(ctx context.Context, p, dest string, c avConsent, p
 		return avResult{}, e
 	}
 	if !c.Authorized || h != c.Hash || n != c.Size {
-		return avResult{}, fmt.Errorf("Архив изменился после разрешения риска — откройте его заново")
+		return avResult{}, fmt.Errorf("%s", tr("Архив изменился после разрешения риска — откройте его заново"))
 	}
 	return secureUnpack(context.WithValue(ctx, avConsentKey{}, c), p, dest, progress)
 }

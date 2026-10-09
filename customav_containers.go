@@ -44,7 +44,7 @@ func (a *avRun) scanPE(name string, b []byte) {
 }
 func (a *avRun) scanNestedZIP(name string, b []byte, depth int) {
 	if depth >= avDepthLimit {
-		a.incomplete("NESTED_DEPTH_LIMIT", name, "Глубина вложенных контейнеров ограничена 3")
+		a.incomplete("NESTED_DEPTH_LIMIT", name, tr("Глубина вложенных контейнеров ограничена 3"))
 		return
 	}
 	r := bytes.NewReader(b)
@@ -75,14 +75,14 @@ func (a *avRun) scanNestedZIP(name string, b []byte, depth int) {
 		rel := name + "!/" + m.Name
 		ext := strings.ToLower(extensionOf(m.Name))
 		if avPE[ext] || avScripts[ext] {
-			a.add("high", "NESTED_EXECUTABLE", rel, "Приложение/скрипт во вложенном ZIP", "malware", 40)
+			a.add("high", "NESTED_EXECUTABLE", rel, tr("Приложение/скрипт во вложенном ZIP"), "malware", 40)
 		}
 		low := strings.ToLower(m.Name)
 		if strings.Contains(low, "vbaproject.bin") || strings.Contains(low, "activex/") || strings.Contains(low, "embeddings/") {
-			a.add("medium", "OFFICE_ACTIVE_CONTENT", rel, "Активное содержимое документа", "review", 25)
+			a.add("medium", "OFFICE_ACTIVE_CONTENT", rel, tr("Активное содержимое документа"), "review", 25)
 		}
 		if m.Size > avNestedLimit-a.nested {
-			a.incomplete("NESTED_SIZE_LIMIT", rel, "Вложенный файл превышает общий лимит 1 ГиБ")
+			a.incomplete("NESTED_SIZE_LIMIT", rel, tr("Вложенный файл превышает общий лимит 1 ГиБ"))
 			continue
 		}
 		w, e := a.fileInContainer(rel, depth+1, "zip")
@@ -164,7 +164,7 @@ func avJavaStrings(b []byte) ([]byte, bool) {
 
 func (a *avRun) scanNestedFAW(name string, b []byte, depth int) {
 	if depth >= avDepthLimit {
-		a.incomplete("NESTED_DEPTH_LIMIT", name, "Глубина вложенных контейнеров ограничена 3")
+		a.incomplete("NESTED_DEPTH_LIMIT", name, tr("Глубина вложенных контейнеров ограничена 3"))
 		return
 	}
 	root, e := createPreviewRoot()
@@ -183,7 +183,7 @@ func (a *avRun) scanNestedFAW(name string, b []byte, depth int) {
 	if e == nil {
 		e = reader.ReadAll(context.WithValue(a.ctx, avMetadataVisitorKey{}, entryVisitor(func(entry archiveEntry) { a.nameSignals(name + "!/" + entry.Name) })), func(entry archiveEntry) (io.WriteCloser, error) {
 			if entry.Size > avNestedLimit-a.nested {
-				return nil, fmt.Errorf("Превышен лимит вложенных данных")
+				return nil, fmt.Errorf("%s", tr("Превышен лимит вложенных данных"))
 			}
 			return a.fileInContainer(name+"!/"+entry.Name, depth+1, "faw")
 		}, nil)

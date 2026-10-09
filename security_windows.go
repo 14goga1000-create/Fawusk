@@ -22,15 +22,15 @@ var currentConsent *avConsent
 
 func avCaption() string {
 	if currentKind != "archive" {
-		return "  CustomAV · проверка при открытии и создании архива\n  Статический анализ, без запуска файлов"
+		return tr("  CustomAV · проверка при открытии и создании архива\n  Статический анализ, без запуска файлов")
 	}
 	if avPhase != "" {
-		return "  " + avPhase + "\n  Файлы не запускаются · можно отменить проверку"
+		return "  " + avPhase + tr("\n  Файлы не запускаются · можно отменить проверку")
 	}
 	if currentAV == nil {
-		return "  Архив не проверен\n  Просмотр файлов и распаковка недоступны"
+		return tr("  Архив не проверен\n  Просмотр файлов и распаковка недоступны")
 	}
-	detail := fmt.Sprintf("Проверено записей: %d · подробности в отчёте", len(currentAV.Files))
+	detail := fmt.Sprintf(tr("Проверено записей: %d · подробности в отчёте"), len(currentAV.Files))
 	if currentAV.blocked() {
 		names := []string{}
 		seen := map[string]bool{}
@@ -44,7 +44,7 @@ func avCaption() string {
 			}
 		}
 		if len(names) > 0 {
-			detail = "Файлы: " + avShort(strings.Join(names, "; "), 78)
+			detail = tr("Файлы: ") + avShort(strings.Join(names, "; "), 78)
 		}
 	}
 	return "  " + avShort(currentAV.label(), 62) + "\n  " + avShort(detail, 65)
@@ -69,9 +69,9 @@ func refreshSecurity() {
 	layout()
 	show(idRisk, currentKind == "archive" && currentAV != nil && currentAV.overridePossible() && (!currentAV.permitted() || currentAV.ReviewSignal > 0))
 	enable.Call(controls[idRisk], boolParam(!busy))
-	caption := "Всё равно"
+	caption := tr("Всё равно")
 	if uiConsentActive() {
-		caption = "Снять риск"
+		caption = tr("Снять риск")
 	}
 	setText.Call(controls[idRisk], ptr(u(caption)))
 	setText.Call(controls[idSecurity], ptr(u(avCaption())))
@@ -83,30 +83,30 @@ func securityActionAllowed(action string) bool {
 		return true
 	}
 	if currentAV == nil || !currentAV.permitted() {
-		message("CustomAV", "Операция недоступна до полной проверки без блокирующих находок.\n\n"+avCaption(), 0x30)
+		message("CustomAV", tr("Операция недоступна до полной проверки без блокирующих находок.\n\n")+avCaption(), 0x30)
 		return false
 	}
 	if currentAV.ReviewSignal > 0 {
-		return message("CustomAV — ручная проверка", "Есть предупреждения CustomAV. Они не доказывают заражение, но требуют проверки.\n\nОперация: "+action+". Продолжить?", 0x134) == 6
+		return message(tr("CustomAV — ручная проверка"), tr("Есть предупреждения CustomAV. Они не доказывают заражение, но требуют проверки.\n\nОперация: ")+action+tr(". Продолжить?"), 0x134) == 6
 	}
 	return true
 }
 func showAVReport() {
 	if currentAV != nil {
-		message("Отчёт CustomAV", currentAV.summary(), 0x40)
+		message(tr("Отчёт CustomAV"), currentAV.summary(), 0x40)
 	}
 }
 func saveAVReport() {
 	if currentAV == nil {
 		return
 	}
-	p := fileDialog(true, false, "Отчёт JSON|*.json||", "Сохранить полный отчёт CustomAV", filepath.Join(filepath.Dir(currentPath), "Fawusk-CustomAV-report.json"), "json")
+	p := fileDialog(true, false, tr("Отчёт JSON|*.json||"), tr("Сохранить полный отчёт CustomAV"), filepath.Join(filepath.Dir(currentPath), "Fawusk-CustomAV-report.json"), "json")
 	if len(p) == 0 {
 		return
 	}
 	b, e := json.MarshalIndent(currentAV, "", "  ")
 	if e != nil {
-		message("Отчёт", e.Error(), 0x10)
+		message(tr("Отчёт"), e.Error(), 0x10)
 		return
 	}
 	f, e := os.OpenFile(p[0], os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
@@ -118,9 +118,9 @@ func saveAVReport() {
 		}
 	}
 	if e != nil {
-		message("Отчёт", e.Error(), 0x10)
+		message(tr("Отчёт"), e.Error(), 0x10)
 	} else {
-		status("Полный JSON-отчёт сохранён")
+		status(tr("Полный JSON-отчёт сохранён"))
 	}
 }
 func avEntryColor(name string) (uint32, bool) {
@@ -177,11 +177,11 @@ func allowRisk() {
 		refresh()
 		return
 	}
-	answer := message("Fawusk — открыть на свой риск?", `CustomAV предупредил о подозрениях или неполной проверке. Файлы могут быть опасны.
+	answer := message(tr("Fawusk — открыть на свой риск?"), tr(`CustomAV предупредил о подозрениях или неполной проверке. Файлы могут быть опасны.
 
 Разрешение действует только для этого архива в текущем окне. Предупреждение останется в отчёте. Проверки путей, лимитов, шифрования, целостности и запрет прямого запуска программ не отключаются.
 
-Продолжить на свой страх и риск?`, 0x134)
+Продолжить на свой страх и риск?`), 0x134)
 	if answer != 6 {
 		return
 	}
@@ -190,5 +190,5 @@ func allowRisk() {
 	currentAV.UserOverride = true
 	currentAV.OverrideAt = c.At
 	refresh()
-	status("Разрешение риска активно только для текущего SHA-256 архива")
+	status(tr("Разрешение риска активно только для текущего SHA-256 архива"))
 }

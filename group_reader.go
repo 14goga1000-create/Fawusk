@@ -29,7 +29,7 @@ func codecWorkers(cpu, groups int) int {
 	return n
 }
 func archiveWorkers(total uint64) int {
-	return codecWorkers(runtime.GOMAXPROCS(0), int((total+faw3Window-1)/faw3Window))
+	return resourceWorkers(runtime.GOMAXPROCS(0), int((total+faw3Window-1)/faw3Window), currentSettings())
 }
 
 type groupReadResult struct {
@@ -47,7 +47,7 @@ type groupReader struct {
 }
 
 func newGroupReader(ctx context.Context, f *os.File, groups []groupDesc, first, last int) *groupReader {
-	n := codecWorkers(runtime.GOMAXPROCS(0), last-first)
+	n := resourceWorkers(runtime.GOMAXPROCS(0), last-first, currentSettings())
 	r := &groupReader{last: last, previous: -1}
 	if first == last {
 		return r
@@ -77,7 +77,7 @@ func newGroupReader(ctx context.Context, f *os.File, groups []groupDesc, first, 
 					if _, e := f.ReadAt(stored, int64(g.Offset)); e != nil {
 						result.err = e
 					} else if sha256.Sum256(stored) != g.Hash {
-						result.err = errors.New("Повреждены данные группы FAW")
+						result.err = errors.New(tr("Повреждены данные группы FAW"))
 					} else if g.Codec == 0 {
 						result.data = stored
 					} else {
@@ -87,7 +87,7 @@ func newGroupReader(ctx context.Context, f *os.File, groups []groupDesc, first, 
 						result.err = e
 					}
 					if result.err == nil && uint64(len(result.data)) != g.Raw {
-						result.err = errors.New("Неверный размер группы")
+						result.err = errors.New(tr("Неверный размер группы"))
 					}
 				}
 				s.results <- result
@@ -104,7 +104,7 @@ func newGroupReader(ctx context.Context, f *os.File, groups []groupDesc, first, 
 func (r *groupReader) load(gi int) ([]byte, error) {
 	n := len(r.slots)
 	if n == 0 {
-		return nil, errors.New("Нет группы")
+		return nil, errors.New(tr("Нет группы"))
 	}
 	if r.previous >= 0 {
 		next := r.previous + n

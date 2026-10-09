@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["verdict", "score", "malware_signal_score", "findings"],
+  "properties": {
+    "verdict": {"type": "string"},
+    "explanation": {"type": "string"},
+    "score": {"type": "integer"},
+    "malware_signal_score": {"type": "integer"},
+    "test_signal_score": {"type": "integer"},
+    "review_signal_score": {"type": "integer"},
+    "findings": {"type": "array", "items": {"type": "object"}},
+    "statistics": {"type": "object"},
+    "metadata": {"type": "object"},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

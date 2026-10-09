@@ -41,6 +41,8 @@ func TestWindowsCustomAVStatuses(t *testing.T) {
 			deadline := time.Now().Add(12 * time.Second)
 			var caption string
 			for time.Now().Before(deadline) {
+				label, _, _ = proc(user, "GetDlgItem").Call(hwnd, idSecurity)
+				unpack, _, _ = proc(user, "GetDlgItem").Call(hwnd, idUnpack)
 				caption = remoteText(label)
 				enabled, _, _ := proc(user, "IsWindowEnabled").Call(unpack)
 				list, _, _ := proc(user, "GetDlgItem").Call(hwnd, idFiles)

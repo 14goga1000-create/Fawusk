@@ -40,14 +40,14 @@ func previewOwnership(root string) (previewOwner, error) {
 	var owner previewOwner
 	root = filepath.Clean(root)
 	if filepath.Dir(root) != filepath.Clean(os.TempDir()) {
-		return owner, errors.New("Чужая папка Temp")
+		return owner, errors.New(tr("Чужая папка Temp"))
 	}
 	st, e := os.Lstat(root)
 	if e != nil {
 		return owner, e
 	}
 	if !st.IsDir() || isLink(st) || platformUnsafe(root, st) {
-		return owner, errors.New("Недопустимая папка просмотра")
+		return owner, errors.New(tr("Недопустимая папка просмотра"))
 	}
 	p := filepath.Join(root, previewMarker)
 	st, e = os.Lstat(p)
@@ -55,7 +55,7 @@ func previewOwnership(root string) (previewOwner, error) {
 		return owner, e
 	}
 	if !st.Mode().IsRegular() || st.Size() > 256 || isLink(st) || platformUnsafe(p, st) {
-		return owner, errors.New("Недопустимая метка владельца")
+		return owner, errors.New(tr("Недопустимая метка владельца"))
 	}
 	data, e := os.ReadFile(p)
 	if e != nil {
@@ -63,7 +63,7 @@ func previewOwnership(root string) (previewOwner, error) {
 	}
 	parts := strings.Split(string(data), "\n")
 	if len(parts) != 4 || parts[0] != "FAWUSK_PREVIEW_V1" || parts[3] != "" {
-		return owner, errors.New("Неверная метка владельца")
+		return owner, errors.New(tr("Неверная метка владельца"))
 	}
 	owner.Version = 1
 	owner.PID, e = strconv.Atoi(parts[1])
@@ -73,7 +73,7 @@ func previewOwnership(root string) (previewOwner, error) {
 	owner.Token = parts[2]
 	raw, e := hex.DecodeString(owner.Token)
 	if e != nil || len(raw) != 16 || owner.Version != 1 || owner.PID <= 0 || !strings.HasPrefix(filepath.Base(root), "Fawusk-preview-"+owner.Token+"-") {
-		return owner, errors.New("Не принадлежит Fawusk")
+		return owner, errors.New(tr("Не принадлежит Fawusk"))
 	}
 	return owner, nil
 }

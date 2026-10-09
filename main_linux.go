@@ -7,6 +7,7 @@ import (
 
 // Linux command-line validation utility. The graphical app targets Windows.
 func main() {
+	_ = startSettings()
 	if len(os.Args) > 1 && os.Args[1] == "--scan-customav" {
 		os.Exit(runAVCLI(os.Args[1:]))
 	}

@@ -1,6 +1,6 @@
-# CustomAV 0.5 integration — Fawusk alpha 0.7.1
+# CustomAV 0.5 integration — Fawusk alpha 0.8
 
-The mandatory user-supplied instruction was read before implementation. This is a **native adapted port of CustomAV 0.5**, not a commercial antivirus, sandbox, neural classifier or an interchangeable second detector. Original reference code and instruction are retained under reference/customav/. The Python runtime and its external extraction utilities are not executed by Fawusk.
+The mandatory user-supplied instruction was read before implementation. This is a **native adapted port of CustomAV 0.5**, not a commercial antivirus, sandbox, neural classifier or an interchangeable second detector. Original reference code and instruction are retained in reference/customav_faw_edition/ and its provenance/ instruction. The Python runtime and its external extraction utilities are not executed by Fawusk.
 
 ## FawReader adapter
 `faw_reader.go` recognises the FAW header/version and provides List, ReadAll and OpenEntry. The existing FAW 1, FAW 2, continuous FAW 3 and indexed FAW 3 decoders remain the sole format authority. They enforce path/type/size/catalogue limits and validate CRC/SHA before successful stream completion. OpenEntry returns an io.ReadCloser; callers must read to EOF and check errors. The pipe is closed with the final decoder error, not before checksum validation.
@@ -38,7 +38,7 @@ Opening scans before enabling operations. New archives are scanned in their clos
 ## Report and standalone mode
 The same pipeline can run without opening the GUI:
 ```
-Fawusk-alpha-0.7.1.exe --scan-customav archive.faw --report new-report.json
+Fawusk-alpha-0.8.exe --scan-customav archive.faw --report new-report.json
 ```
 When invoking it from a program, use an argument array with no shell, wait for process completion, and inspect both exit code and JSON. Code 0 = completed clear/review (read the verdict); 2 = blocking malware/test signal; 3 = incomplete/error; 64 = invalid arguments. Report filenames are not overwritten. Missing report is a failure, never clear. Existing encrypted/unsafe archives are not made readable by this mode.
 
@@ -64,3 +64,6 @@ The memorandum is ceremonial project documentation supplied/authorised by the ow
 
 ## Licensed distribution update (still alpha 0.7.1)
 The subsequently supplied licensed Faw Edition v0.5 package contains MIT LICENSE and NOTICE.md with explicit permission for Fawusk inclusion/modification/redistribution. Functional source files are unchanged relative to the earlier Faw Edition package. Licence/copyright and upstream notice are preserved under reference/customav_faw_edition, docs/licenses and security/fawsecurity/LICENSE. This update changes packaging and licence documentation only, not the EXE, scanner or version.
+
+## Alpha 0.8 settings and localisation
+Resource settings affect Go memory/execution and codec scheduling, never security quotas, validation, consent identity or preview restrictions. RU/EN changes system strings, not file names/content. Stored technical finding details may retain their original language; switching does not rescan an archive or rewrite saved JSON. See SETTINGS.md. Duplicate old reference-engine files were removed after byte comparison; original instruction/schema provenance is retained.

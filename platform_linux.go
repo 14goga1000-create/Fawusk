@@ -15,7 +15,7 @@ func publishFile(from, to string) error {
 }
 func publishDirectory(from, to string) error {
 	if _, e := os.Lstat(to); e == nil {
-		return errors.New("Папка уже существует")
+		return errors.New(tr("Папка уже существует"))
 	}
 	return os.Rename(from, to)
 }

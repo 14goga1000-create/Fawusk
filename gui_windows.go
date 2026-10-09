@@ -127,6 +127,7 @@ const (
 	idOutputLabel = 121
 	idNote        = 122
 	wmUpdate      = 0x8001
+	wmLanguage    = 0x8003
 )
 
 func u(s string) *uint16    { p, _ := syscall.UTF16PtrFromString(s); return p }
@@ -188,7 +189,7 @@ func newWindow(p string) {
 	}
 	cmd := exec.Command(programPath(), args...)
 	if e := cmd.Start(); e != nil {
-		message("Новое окно", e.Error(), 0x10)
+		message(tr("Новое окно"), e.Error(), 0x10)
 	} else {
 		go cmd.Wait()
 	}
@@ -219,7 +220,8 @@ func layout() {
 	}
 	m := 28
 	full := w - 2*m
-	move(idTitle, m, 20, full-170, 42)
+	move(idTitle, m, 20, full-280, 42)
+	move(idLanguage, w-m-260, 28, 80, 130)
 	move(idSubtitle, w-m-162, 30, 162, 28)
 	move(idFileLabel, m, 87, full-222, 26)
 	move(idAdd, w-m-196, 78, 138, 40)
@@ -228,9 +230,13 @@ func layout() {
 	move(idUp, w-m-80, 131, 80, 38)
 	riskShown := currentKind == "archive" && currentAV != nil && currentAV.overridePossible() && (!currentAV.permitted() || currentAV.ReviewSignal > 0)
 	if riskShown {
-		move(idSecurity, m, 185, full-238, 48)
-		move(idSecurityReport, w-m-230, 189, 106, 40)
-		move(idRisk, w-m-116, 189, 116, 40)
+		riskWidth := 116
+		if currentSettings().Language == "EN" {
+			riskWidth = 142
+		}
+		move(idSecurity, m, 185, full-riskWidth-122, 48)
+		move(idSecurityReport, w-m-riskWidth-114, 189, 106, 40)
+		move(idRisk, w-m-riskWidth, 189, riskWidth, 40)
 	} else {
 		move(idSecurity, m, 185, full-136, 48)
 		move(idSecurityReport, w-m-128, 189, 128, 40)
@@ -271,16 +277,16 @@ func refresh() {
 		display += "  ›  " + strings.TrimSuffix(archivePrefix, "/")
 	}
 	setText.Call(controls[idPath], ptr(u(display)))
-	caption := "Один файл или папка на окно"
+	caption := tr("Один файл или папка на окно")
 	switch currentKind {
 	case "dir":
 		t := totals(rows)
-		caption = "Папка · " + countText(t.Files, "файл", "файла", "файлов") + " · " + countText(t.Directories, "папка", "папки", "папок")
+		caption = tr("Папка · ") + countText(t.Files, tr("файл"), tr("файла"), tr("файлов")) + " · " + countText(t.Directories, tr("папка"), tr("папки"), tr("папок"))
 	case "file":
-		caption = "Обычный файл"
+		caption = tr("Обычный файл")
 	case "archive":
 		t := totals(rows)
-		caption = "Архив · " + countText(t.Files, "файл", "файла", "файлов") + " · " + countText(t.Directories, "папка", "папки", "папок")
+		caption = tr("Архив · ") + countText(t.Files, tr("файл"), tr("файла"), tr("файлов")) + " · " + countText(t.Directories, tr("папка"), tr("папки"), tr("папок"))
 	}
 	setText.Call(controls[idFileLabel], ptr(u(caption)))
 	hasList := currentKind == "dir" || currentKind == "archive"
@@ -288,16 +294,16 @@ func refresh() {
 	show(idEmpty, currentKind == "")
 	show(idEmptyHint, currentKind == "")
 	if currentKind == "" {
-		setText.Call(controls[idEmpty], ptr(u("Откройте файл или папку")))
-		setText.Call(controls[idEmptyHint], ptr(u("или перетащите один путь в окно")))
+		setText.Call(controls[idEmpty], ptr(u(tr("Откройте файл или папку"))))
+		setText.Call(controls[idEmptyHint], ptr(u(tr("или перетащите один путь в окно"))))
 	} else if hasList {
-		title, hint := "Папка пуста", "Можно упаковать пустую папку"
+		title, hint := tr("Папка пуста"), tr("Можно упаковать пустую папку")
 		if currentKind == "archive" {
-			title, hint = "Архив не прочитан", "Откройте архив для проверки"
+			title, hint = tr("Архив не прочитан"), tr("Откройте архив для проверки")
 			if busy {
-				title, hint = "Чтение архива…", "Содержимое появится после проверки"
+				title, hint = tr("Чтение архива…"), tr("Содержимое появится после проверки")
 			} else if archiveReady {
-				title, hint = "Нет элементов", "В этой папке архива нет файлов"
+				title, hint = tr("Нет элементов"), tr("В этой папке архива нет файлов")
 			}
 		}
 		setText.Call(controls[idEmpty], ptr(u(title)))
@@ -318,7 +324,7 @@ func refresh() {
 }
 func setBusy(b bool) {
 	busy = b
-	for _, id := range []int{idAdd, idMore, idFormat, idLevel, idFiles, idUp, idPath, idSecurityReport, idRisk} {
+	for _, id := range []int{idAdd, idMore, idFormat, idLevel, idFiles, idUp, idPath, idSecurityReport, idRisk, idLanguage} {
 		enable.Call(controls[id], boolParam(!b))
 	}
 	show(idUnpack, !b)
@@ -339,16 +345,16 @@ func openPath(p string) {
 	}
 	absolute, e := filepath.Abs(p)
 	if e != nil {
-		message("Путь", e.Error(), 0x10)
+		message(tr("Путь"), e.Error(), 0x10)
 		return
 	}
 	info, e := os.Lstat(absolute)
 	if e != nil {
-		message("Открытие", e.Error(), 0x10)
+		message(tr("Открытие"), e.Error(), 0x10)
 		return
 	}
 	if isLink(info) || platformUnsafe(absolute, info) {
-		message("Открытие", "Ссылки, junction и специальные файлы пока не поддерживаются", 0x40)
+		message(tr("Открытие"), tr("Ссылки, junction и специальные файлы пока не поддерживаются"), 0x40)
 		return
 	}
 	currentAV = nil
@@ -367,7 +373,7 @@ func openPath(p string) {
 		cancelWork = cancel
 		taskKind = "folder"
 		setBusy(true)
-		status("Чтение папки…")
+		status(tr("Чтение папки…"))
 		go func() {
 			a, e := readFolder(ctx, absolute, notify)
 			mu.Lock()
@@ -381,18 +387,18 @@ func openPath(p string) {
 	if e != nil {
 		currentKind = "archive"
 		refresh()
-		message("Чтение архива", e.Error(), 0x10)
+		message(tr("Чтение архива"), e.Error(), 0x10)
 		return
 	}
 	if version != 0 {
 		currentKind = "archive"
-		avPhase = "Проверка архива CustomAV…"
+		avPhase = tr("Проверка архива CustomAV…")
 		refresh()
 		taskKind = "scan"
 		ctx, cancel := context.WithCancel(context.Background())
 		cancelWork = cancel
 		setBusy(true)
-		status("Чтение и проверка архива…")
+		status(tr("Чтение и проверка архива…"))
 		go func() {
 			a, e := scanArchive(ctx, absolute, notify)
 			if e != nil {
@@ -408,7 +414,7 @@ func openPath(p string) {
 	}
 	currentKind = "file"
 	refresh()
-	status("Двойной клик по пути — открыть файл внешним приложением")
+	status(tr("Двойной клик по пути — открыть файл внешним приложением"))
 }
 func activateRow() {
 	if busy {
@@ -427,7 +433,7 @@ func activateRow() {
 				orderRows(rows, sortColumn, sortDescending)
 			}
 			refresh()
-			status("Двойной клик — просмотр медиа и документов")
+			status(tr("Двойной клик — просмотр медиа и документов"))
 		} else {
 			doPreview(a.Name)
 		}
@@ -439,11 +445,11 @@ func activateRow() {
 	}
 	info, e := os.Lstat(a.Name)
 	if e != nil {
-		message("Открытие", e.Error(), 0x10)
+		message(tr("Открытие"), e.Error(), 0x10)
 		return
 	}
 	if isLink(info) || platformUnsafe(a.Name, info) {
-		message("Открытие", "Ссылки и специальные файлы пока не поддерживаются", 0x40)
+		message(tr("Открытие"), tr("Ссылки и специальные файлы пока не поддерживаются"), 0x40)
 		return
 	}
 	version, e := archiveVersion(a.Name)
@@ -483,7 +489,7 @@ func openExternal(p string) {
 	}
 	r, _, _ := proc(shell, "ShellExecuteW").Call(mainWindow, ptr(u("open")), ptr(u(p)), 0, 0, 1)
 	if r <= 32 {
-		message("Открытие файла", "Windows не смогла открыть файл. Проверьте назначенное приложение и путь.", 0x10)
+		message(tr("Открытие файла"), tr("Windows не смогла открыть файл. Проверьте назначенное приложение и путь."), 0x10)
 	}
 }
 func openResult() {
@@ -512,13 +518,13 @@ func doPack() {
 	}
 	format := chooseFormat()
 	ext := outputExt()
-	p := fileDialog(true, false, "Архив "+strings.ToUpper(ext)+"|*."+ext+"||", "Создать архив", defaultOutput(), ext)
+	p := fileDialog(true, false, tr("Архив ")+strings.ToUpper(ext)+"|*."+ext+"||", tr("Создать архив"), defaultOutput(), ext)
 	if len(p) == 0 {
 		return
 	}
 	out, e := filepath.Abs(p[0])
 	if e != nil {
-		message("Путь", e.Error(), 0x10)
+		message(tr("Путь"), e.Error(), 0x10)
 		return
 	}
 	inputs := []string{currentPath}
@@ -529,7 +535,7 @@ func doPack() {
 	taskKind = "pack"
 	setBusy(true)
 	send.Call(controls[idProgress], 0x402, 0, 0)
-	status("Подготовка…")
+	status(tr("Подготовка…"))
 	go func() {
 		r, e := securePack(ctx, inputs, out, format, level, notify)
 		mu.Lock()
@@ -542,10 +548,10 @@ func doUnpack() {
 	if busy || currentKind != "archive" {
 		return
 	}
-	if !securityActionAllowed("Распаковка") {
+	if !securityActionAllowed(tr("Распаковка")) {
 		return
 	}
-	parent := folderDialog("Где создать новую папку с результатом распаковки?")
+	parent := folderDialog(tr("Где создать новую папку с результатом распаковки?"))
 	if parent == "" {
 		return
 	}
@@ -556,7 +562,7 @@ func doUnpack() {
 			break
 		}
 		if n > 9999 {
-			message("Ошибка", "Не найдено свободное имя папки", 0x10)
+			message(tr("Ошибка"), tr("Не найдено свободное имя папки"), 0x10)
 			return
 		}
 		dest = filepath.Join(parent, fmt.Sprintf("%s-%d", base, n))
@@ -567,7 +573,7 @@ func doUnpack() {
 	cancelWork = cancel
 	taskKind = "unpack"
 	setBusy(true)
-	status("Распаковка…")
+	status(tr("Распаковка…"))
 	go func() {
 		var r avResult
 		var e error
@@ -590,35 +596,36 @@ func popup(id int, opening bool) {
 	defer proc(user, "DestroyMenu").Call(menu)
 	addItem := func(m, flags, number uintptr, s string) { proc(user, "AppendMenuW").Call(m, flags, number, ptr(u(s))) }
 	if opening {
-		addItem(menu, 0, 1001, "Файл или архив…")
-		addItem(menu, 0, 1002, "Папку…")
+		addItem(menu, 0, 1001, tr("Файл или архив…"))
+		addItem(menu, 0, 1002, tr("Папку…"))
 	} else {
-		addItem(menu, 0, 1003, "Новое окно")
+		addItem(menu, 0, 1003, tr("Новое окно"))
 		f := uintptr(0)
 		if resultPath == "" {
 			f = 3
 		}
-		addItem(menu, f, 1008, "Папка результата")
-		addItem(menu, 0, 1011, "Добавить .faw в «Открыть с помощью»")
+		addItem(menu, f, 1008, tr("Папка результата"))
+		addItem(menu, 0, 1011, tr("Добавить .faw в «Открыть с помощью»"))
 		flags := uintptr(3)
 		if currentKind == "archive" && currentAV != nil {
 			flags = 0
 		}
-		addItem(menu, flags, 1012, "Отчёт CustomAV…")
-		addItem(menu, flags, 1013, "Сохранить отчёт CustomAV (JSON)…")
-		addItem(menu, 0, 1009, "О Fawusk")
+		addItem(menu, flags, 1012, tr("Отчёт CustomAV…"))
+		addItem(menu, flags, 1013, tr("Сохранить отчёт CustomAV (JSON)…"))
+		addItem(menu, 0, 1014, tr("Настройки…"))
+		addItem(menu, 0, 1009, tr("О Fawusk"))
 	}
 	var r rect
 	proc(user, "GetWindowRect").Call(controls[id], uintptr(unsafe.Pointer(&r)))
 	action, _, _ := proc(user, "TrackPopupMenu").Call(menu, 0x102, uintptr(r.Left), uintptr(r.Bottom), 0, mainWindow, 0)
 	switch action {
 	case 1001:
-		p := fileDialog(false, false, "Все файлы|*.*|Архивы FAW и ZIP|*.faw;*.zip||", "Открыть файл или архив", "", "")
+		p := fileDialog(false, false, tr("Все файлы|*.*|Архивы FAW и ZIP|*.faw;*.zip||"), tr("Открыть файл или архив"), "", "")
 		if len(p) > 0 {
 			openPath(p[0])
 		}
 	case 1002:
-		if p := folderDialog("Открыть папку"); p != "" {
+		if p := folderDialog(tr("Открыть папку")); p != "" {
 			openPath(p)
 		}
 	case 1003:
@@ -627,16 +634,18 @@ func popup(id int, opening bool) {
 		openResult()
 	case 1011:
 		if e := registerFAWOpenWith(); e != nil {
-			message("Регистрация FAW", e.Error(), 0x10)
+			message(tr("Регистрация FAW"), e.Error(), 0x10)
 		} else {
-			message("Регистрация FAW", "Fawusk добавлен в список «Открыть с помощью» для .faw.\n\nПриложение по умолчанию не менялось. Выберите Fawusk средствами Windows. Не перемещайте EXE после регистрации.", 0x40)
+			message(tr("Регистрация FAW"), tr("Fawusk добавлен в список «Открыть с помощью» для .faw.\n\nПриложение по умолчанию не менялось. Выберите Fawusk средствами Windows. Не перемещайте EXE после регистрации."), 0x40)
 		}
 	case 1012:
 		showAVReport()
 	case 1013:
 		saveAVReport()
+	case 1014:
+		showSettings()
 	case 1009:
-		message("Fawusk "+appVersion, "Fawusk "+appVersion+"\n\nОдин путь на окно.\nFAW 3: индексированные solid-группы, SHA-256.\nFAW 2: отдельное сжатие файлов.\nЧтение FAW 1/2/3 и ZIP.\n\nПроект развивается как конкурент WinRAR и 7-Zip.\nЭто альфа, превосходство пока не доказано.\nRAR, 7z и шифрование не реализованы.", 0x40)
+		message("Fawusk "+appVersion, "Fawusk "+appVersion+tr("\n\nОдин путь на окно.\nFAW 3: индексированные solid-группы, SHA-256.\nFAW 2: отдельное сжатие файлов.\nЧтение FAW 1/2/3 и ZIP.\n\nПроект развивается как конкурент WinRAR и 7-Zip.\nЭто альфа, превосходство пока не доказано.\nRAR, 7z и шифрование не реализованы."), 0x40)
 	}
 }
 func pathProc(hwnd uintptr, msg uint32, wparam, lparam uintptr) uintptr {
@@ -667,42 +676,51 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		headingFont, _, _ = proc(gdi, "CreateFontW").Call(uintptr(-scaled(30)), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, 5, 0, ptr(u("Segoe UI")))
 		smallFont, _, _ = proc(gdi, "CreateFontW").Call(uintptr(-scaled(14)), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, ptr(u("Segoe UI")))
 		label(idTitle, "Fawusk")
+		control(idLanguage, "COMBOBOX", "", 0x3|0x10000|0x00200000)
+		for _, s := range []string{"RU", "EN"} {
+			send.Call(controls[idLanguage], 0x143, 0, ptr(u(s)))
+		}
+		lang := 0
+		if currentSettings().Language == "EN" {
+			lang = 1
+		}
+		send.Call(controls[idLanguage], 0x14e, uintptr(lang), 0)
 		send.Call(controls[idTitle], 0x30, headingFont, 1)
 		control(idSubtitle, "STATIC", appVersion, 2)
 		send.Call(controls[idSubtitle], 0x30, smallFont, 1)
-		label(idFileLabel, "Один путь на окно")
-		button(idAdd, "Открыть…")
+		label(idFileLabel, tr("Один путь на окно"))
+		button(idAdd, tr("Открыть…"))
 		button(idMore, "…")
 		control(idPath, "EDIT", "", 0x00800000|0x10000|0x80|0x800)
 		pathOldProc, _, _ = proc(user, "SetWindowLongPtrW").Call(controls[idPath], ^uintptr(3), syscall.NewCallback(pathProc))
-		button(idUp, "Вверх")
-		label(idSecurity, "CustomAV · проверка при открытии архива")
+		button(idUp, tr("Вверх"))
+		label(idSecurity, tr("CustomAV · проверка при открытии архива"))
 		send.Call(controls[idSecurity], 0x30, smallFont, 1)
-		button(idSecurityReport, "Отчёт…")
-		button(idRisk, "Всё равно")
+		button(idSecurityReport, tr("Отчёт…"))
+		button(idRisk, tr("Всё равно"))
 		initTable()
-		control(idEmpty, "STATIC", "Откройте файл или папку", 1)
-		control(idEmptyHint, "STATIC", "или перетащите один путь в окно", 1)
-		label(idFormatLabel, "Формат архива")
-		label(idLevelLabel, "Сжатие")
+		control(idEmpty, "STATIC", tr("Откройте файл или папку"), 1)
+		control(idEmptyHint, "STATIC", tr("или перетащите один путь в окно"), 1)
+		label(idFormatLabel, tr("Формат архива"))
+		label(idLevelLabel, tr("Сжатие"))
 		send.Call(controls[idFormatLabel], 0x30, smallFont, 1)
 		send.Call(controls[idLevelLabel], 0x30, smallFont, 1)
 		control(idFormat, "COMBOBOX", "", 0x3|0x10000|0x00200000)
-		for _, s := range []string{"FAW 3 · рекомендуемый", "FAW 2 · классический", "FAW 1 · совместимость", "ZIP · совместимый"} {
+		for _, s := range []string{tr("FAW 3 · рекомендуемый"), tr("FAW 2 · классический"), tr("FAW 1 · совместимость"), tr("ZIP · совместимый")} {
 			send.Call(controls[idFormat], 0x143, 0, ptr(u(s)))
 		}
 		send.Call(controls[idFormat], 0x14e, 0, 0)
 		control(idLevel, "COMBOBOX", "", 0x3|0x10000|0x00200000)
-		for _, s := range []string{"Быстрый", "Хороший", "Максимальный"} {
+		for _, s := range []string{tr("Быстрый"), tr("Хороший"), tr("Максимальный")} {
 			send.Call(controls[idLevel], 0x143, 0, ptr(u(s)))
 		}
 		send.Call(controls[idLevel], 0x14e, 0, 0)
-		control(idPack, "BUTTON", "Упаковать", 0x10000|1)
-		button(idUnpack, "Распаковать…")
-		button(idCancel, "Отмена")
+		control(idPack, "BUTTON", tr("Упаковать"), 0x10000|1)
+		button(idUnpack, tr("Распаковать…"))
+		button(idCancel, tr("Отмена"))
 		control(idProgress, "msctls_progress32", "", 1)
 		send.Call(controls[idProgress], 0x406, 0, 100)
-		label(idStatus, "Откройте один путь · дополнительные окна доступны в меню «…»")
+		label(idStatus, tr("Откройте один путь · дополнительные окна доступны в меню «…»"))
 		send.Call(controls[idStatus], 0x30, smallFont, 1)
 		proc(shell, "DragAcceptFiles").Call(hwnd, 1)
 		setBusy(false)
@@ -722,6 +740,12 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 			return 0
 		}
 		switch id {
+		case idLanguage:
+			if code == 9 {
+				post.Call(hwnd, wmLanguage, 0, 0)
+			}
+		case 1014:
+			showSettings()
 		case idAdd:
 			popup(idAdd, true)
 		case idMore:
@@ -748,7 +772,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 			if cancelWork != nil {
 				cancelWork()
 				enable.Call(controls[idCancel], 0)
-				status("Отмена и очистка…")
+				status(tr("Отмена и очистка…"))
 			}
 		}
 		return 0
@@ -768,6 +792,11 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		}
 		proc(shell, "DragFinish").Call(wparam)
 		return 0
+	case wmLanguage:
+		if !busy {
+			changeLanguage()
+		}
+		return 0
 	case wmUpdate:
 		mu.Lock()
 		p := pendingProgress
@@ -779,7 +808,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 			send.Call(controls[idProgress], 0x402, uintptr(p.percent), 0)
 			s := p.text
 			if taskKind == "scan" {
-				s = strings.Replace(s, "Распаковка:", "Чтение:", 1)
+				s = strings.Replace(s, tr("Распаковка:"), tr("Чтение:"), 1)
 			}
 			status(s)
 		}
@@ -788,7 +817,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 				cancelWork()
 				cancelWork = nil
 			}
-			if v.preview && v.err != nil && currentAV != nil && strings.Contains(v.err.Error(), "Архив изменился") {
+			if v.preview && v.err != nil && currentAV != nil && strings.Contains(v.err.Error(), tr("Архив изменился")) {
 				currentAV.Complete = false
 				currentAV.ScanComplete = false
 				currentAV.Verdict = "INCOMPLETE SCAN / MANUAL REVIEW"
@@ -803,10 +832,10 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 			setBusy(false)
 			if v.err != nil {
 				if errors.Is(v.err, context.Canceled) {
-					status("Отменено")
+					status(tr("Отменено"))
 				} else {
-					status("Операция не завершена")
-					message("Fawusk — ошибка", v.err.Error(), 0x10)
+					status(tr("Операция не завершена"))
+					message(tr("Fawusk — ошибка"), v.err.Error(), 0x10)
 				}
 			} else if v.folder {
 				rows = v.entries
@@ -814,7 +843,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 					orderRows(rows, sortColumn, sortDescending)
 				}
 				refresh()
-				status("Известный размер файлов: " + formatBytes(totals(rows).Bytes) + " · Двойной клик — открыть")
+				status(tr("Известный размер файлов: ") + formatBytes(totals(rows).Bytes) + tr(" · Двойной клик — открыть"))
 			} else if v.scan {
 				archiveReady = true
 				entries = v.entries
@@ -824,16 +853,16 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 				}
 				refresh()
 				if currentAV != nil && !uiActionPermitted() {
-					status("Список доступен · просмотр и распаковка заблокированы CustomAV")
+					status(tr("Список доступен · просмотр и распаковка заблокированы CustomAV"))
 				} else {
-					status("Данные архива: " + formatBytes(totals(entries).Bytes) + " · Двойной клик — просмотр")
+					status(tr("Данные архива: ") + formatBytes(totals(entries).Bytes) + tr(" · Двойной клик — просмотр"))
 				}
 			} else if v.preview {
 				openExternal(v.path)
-				status("Открыт только выбранный файл · приложение Windows")
+				status(tr("Открыт только выбранный файл · приложение Windows"))
 			} else {
 				resultPath = v.path
-				status("Готово · папка результата доступна в меню «…»")
+				status(tr("Готово · папка результата доступна в меню «…»"))
 			}
 		}
 		return 0
@@ -850,7 +879,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		return bg
 	case 0x10:
 		if busy {
-			message("Операция выполняется", "Сначала отмените операцию и дождитесь завершения очистки", 0x40)
+			message(tr("Операция выполняется"), tr("Сначала отмените операцию и дождитесь завершения очистки"), 0x40)
 			return 0
 		}
 		proc(user, "DestroyWindow").Call(hwnd)
@@ -872,6 +901,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 }
 
 func main() {
+	settingsError := startSettings()
 	if len(os.Args) > 1 && os.Args[1] == "--scan-customav" {
 		os.Exit(runAVCLI(os.Args[1:]))
 	}
@@ -916,6 +946,9 @@ func main() {
 	}
 	proc(user, "ShowWindow").Call(mainWindow, 1)
 	proc(user, "UpdateWindow").Call(mainWindow)
+	if settingsError != nil {
+		message(tr("Настройки"), tr("Настройки повреждены или недоступны. Использованы значения по умолчанию.\n\n")+settingsError.Error(), 0x30)
+	}
 	if len(os.Args) > 1 {
 		openPath(os.Args[1])
 		for _, p := range os.Args[2:] {
@@ -945,11 +978,11 @@ func doPreview(name string) {
 	if busy {
 		return
 	}
-	if !securityActionAllowed("Просмотр файла") {
+	if !securityActionAllowed(tr("Просмотр файла")) {
 		return
 	}
 	if e := previewAllowed(name); e != nil {
-		message("Безопасный просмотр", e.Error(), 0x40)
+		message(tr("Безопасный просмотр"), e.Error(), 0x40)
 		return
 	}
 	remaining := previewRoots[:0]
@@ -972,7 +1005,7 @@ func doPreview(name string) {
 	cancelWork = cancel
 	taskKind = "preview"
 	setBusy(true)
-	status("Извлечение выбранного файла…")
+	status(tr("Извлечение выбранного файла…"))
 	go func() {
 		var p string
 		var e error

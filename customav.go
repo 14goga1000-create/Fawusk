@@ -100,35 +100,35 @@ func (r avResult) state() string {
 }
 func (r avResult) label() string {
 	if r.UserOverride {
-		return "Риск разрешён пользователем · предупреждения CustomAV сохранены"
+		return tr("Риск разрешён пользователем · предупреждения CustomAV сохранены")
 	}
 	switch r.state() {
 	case "blocked":
-		return "Есть подозрительные файлы · распаковка заблокирована"
+		return tr("Есть подозрительные файлы · распаковка заблокирована")
 	case "test":
-		return "Обнаружена тестовая сигнатура · EICAR / проверка правил"
+		return tr("Обнаружена тестовая сигнатура · EICAR / проверка правил")
 	case "incomplete":
-		return "Проверка неполная · открытие файлов и распаковка недоступны"
+		return tr("Проверка неполная · открытие файлов и распаковка недоступны")
 	case "review":
-		return "Нужна ручная проверка · обнаружены особенности файлов"
+		return tr("Нужна ручная проверка · обнаружены особенности файлов")
 	default:
-		return "Угрозы не обнаружены · статический анализ CustomAV"
+		return tr("Угрозы не обнаружены · статический анализ CustomAV")
 	}
 }
 func (r avResult) summary() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s\n\nCustomAV Faw Edition · alpha 0.7.1\nSHA-256 архива: %s\nРазмер архива: %d байт\nПроверено записей файлов: %d\n\n", r.label(), r.ArchiveSHA256, r.ArchiveSize, len(r.Files))
+	fmt.Fprintf(&b, tr("%s\n\nCustomAV Faw Edition · alpha 0.8\nSHA-256 архива: %s\nРазмер архива: %d байт\nПроверено записей файлов: %d\n\n"), r.label(), r.ArchiveSHA256, r.ArchiveSize, len(r.Files))
 	for i, f := range r.Findings {
 		if i >= 8 {
-			b.WriteString("Остальные записи — в полном JSON-отчёте.\n")
+			b.WriteString(tr("Остальные записи — в полном JSON-отчёте.\n"))
 			break
 		}
 		fmt.Fprintf(&b, "%s\n%s: %s\n\n", avShort(f.Path, 120), f.Rule, avShort(f.Detail, 180))
 	}
 	if len(r.Findings) == 0 {
-		b.WriteString("Положительных признаков по установленным правилам не найдено.\n\n")
+		b.WriteString(tr("Положительных признаков по установленным правилам не найдено.\n\n"))
 	}
-	b.WriteString("Это не гарантия отсутствия вирусов. Эвристики могут ошибаться. Внешние приложения не изолированы. Полный JSON-отчёт можно сохранить через меню «…».")
+	b.WriteString(tr("Это не гарантия отсутствия вирусов. Эвристики могут ошибаться. Внешние приложения не изолированы. Полный JSON-отчёт можно сохранить через меню «…»."))
 	return b.String()
 }
 
@@ -151,7 +151,7 @@ type avContextKey struct{}
 func avFromContext(ctx context.Context) *avRun { r, _ := ctx.Value(avContextKey{}).(*avRun); return r }
 func newAVRun(ctx context.Context, db []byte, progress report) *avRun {
 	a := &avRun{ctx: ctx, seen: map[string]bool{}, progress: progress}
-	a.result = avResult{Engine: "CustomAV", Version: "Faw Edition / native integration alpha 0.7.1", Complete: true, ScanScope: "all_entries", CheckedAt: time.Now().UTC().Format(time.RFC3339), Findings: []avFinding{}, Files: []avFile{}, Limitations: []string{"Static rules only; targets are never executed. Unknown threats can evade detection; heuristic false positives are possible.", "Native adapted port, not the Python reference runtime. PE/JAR/PDF/script/name rules and signature layer are bounded.", "16 MiB analysis sample per file; larger files are hashed fully but marked incomplete. Nested FAW/ZIP up to depth 3 and 1 GiB decoded total; nested RAR/7z/other containers not decoded.", "No cloud, sandbox, commercial reputation or signature update service. Default database contains EICAR only.", "Entropy/packer scoring and Minecraft manifest/allowlist reputation from the reference are not ported."}}
+	a.result = avResult{Engine: "CustomAV", Version: "Faw Edition / native integration alpha 0.8", Complete: true, ScanScope: "all_entries", CheckedAt: time.Now().UTC().Format(time.RFC3339), Findings: []avFinding{}, Files: []avFile{}, Limitations: []string{"Static rules only; targets are never executed. Unknown threats can evade detection; heuristic false positives are possible.", "Native adapted port, not the Python reference runtime. PE/JAR/PDF/script/name rules and signature layer are bounded.", "16 MiB analysis sample per file; larger files are hashed fully but marked incomplete. Nested FAW/ZIP up to depth 3 and 1 GiB decoded total; nested RAR/7z/other containers not decoded.", "No cloud, sandbox, commercial reputation or signature update service. Default database contains EICAR only.", "Entropy/packer scoring and Minecraft manifest/allowlist reputation from the reference are not ported."}}
 	if e := a.loadSignatures(avBuiltinDB); e != nil {
 		a.incomplete("BUILTIN_SIGNATURE_ERROR", "[signature-db]", e.Error())
 	}
@@ -199,7 +199,7 @@ func (a *avRun) incomplete(rule, p, detail string) {
 }
 func (a *avRun) loadSignatures(data []byte) error {
 	if len(data) > 2<<20 {
-		return errors.New("Слишком большая база правил")
+		return errors.New(tr("Слишком большая база правил"))
 	}
 	var db struct {
 		Version    int                                                                         `json:"version"`
@@ -209,11 +209,11 @@ func (a *avRun) loadSignatures(data []byte) error {
 		return e
 	}
 	if db.Version != 1 || len(db.Signatures) == 0 || len(db.Signatures) > 256 {
-		return errors.New("Неподдерживаемая или пустая база правил")
+		return errors.New(tr("Неподдерживаемая или пустая база правил"))
 	}
 	for _, r := range db.Signatures {
 		if r.ID == "" || (r.Classification != "test" && r.Classification != "malware") {
-			return errors.New("Неверная классификация сигнатуры")
+			return errors.New(tr("Неверная классификация сигнатуры"))
 		}
 		s := avSig{ID: r.ID, Type: r.Type, Classification: r.Classification, Description: r.Description}
 		var e error
@@ -227,31 +227,31 @@ func (a *avRun) loadSignatures(data []byte) error {
 			case "hex":
 				s.Pattern, e = hex.DecodeString(r.Pattern)
 			default:
-				e = errors.New("Неизвестная кодировка сигнатуры")
+				e = errors.New(tr("Неизвестная кодировка сигнатуры"))
 			}
 			if e != nil {
 				return e
 			}
 			if len(s.Pattern) == 0 || len(s.Pattern) > 1<<20 {
-				return errors.New("Неверная длина сигнатуры")
+				return errors.New(tr("Неверная длина сигнатуры"))
 			}
 		case "regex":
 			if len(r.Pattern) == 0 || len(r.Pattern) > 4096 {
-				return errors.New("Слишком сложное regex-правило")
+				return errors.New(tr("Слишком сложное regex-правило"))
 			}
 			s.Regex, e = regexp.Compile("(?is)" + r.Pattern)
 			if e != nil {
 				return e
 			}
 		default:
-			return errors.New("Неизвестный тип сигнатуры")
+			return errors.New(tr("Неизвестный тип сигнатуры"))
 		}
 		duplicate := false
 		for _, old := range a.signatures {
 			if old.ID == s.ID {
 				duplicate = true
 				if old.Type != s.Type || old.Classification != s.Classification || !bytes.Equal(old.Pattern, s.Pattern) || (old.Regex != nil && s.Regex != nil && old.Regex.String() != s.Regex.String()) {
-					return errors.New("Повторяющийся идентификатор сигнатуры")
+					return errors.New(tr("Повторяющийся идентификатор сигнатуры"))
 				}
 			}
 		}
@@ -275,7 +275,7 @@ func runtimeSignatureDB() ([]byte, error) {
 		return nil, e
 	}
 	if !st.Mode().IsRegular() || isLink(st) || platformUnsafe(p, st) || st.Size() > 2<<20 {
-		return nil, errors.New("Недопустимый файл customav_signatures.json")
+		return nil, errors.New(tr("Недопустимый файл customav_signatures.json"))
 	}
 	return os.ReadFile(p)
 }
@@ -333,8 +333,8 @@ type avWriter struct {
 func (a *avRun) file(name string, depth int) (io.WriteCloser, error) {
 	a.count++
 	if a.count > avFileLimit {
-		a.incomplete("SCAN_FILE_LIMIT", name, "Лимит проверки — 10 000 файлов, включая вложенные")
-		return nil, errors.New("Превышен лимит файлов CustomAV")
+		a.incomplete("SCAN_FILE_LIMIT", name, tr("Лимит проверки — 10 000 файлов, включая вложенные"))
+		return nil, errors.New(tr("Превышен лимит файлов CustomAV"))
 	}
 	return &avWriter{run: a, name: name, depth: depth, sum: sha256.New(), containerFormat: a.result.ContainerFormat}, nil
 }
@@ -343,12 +343,12 @@ func (w *avWriter) Write(p []byte) (int, error) {
 		return 0, e
 	}
 	if uint64(len(p)) > avByteLimit-w.run.consumed {
-		w.run.incomplete("SCAN_BYTE_LIMIT", w.name, "Превышен суммарный лимит проверки")
-		return 0, errors.New("Превышен лимит данных CustomAV")
+		w.run.incomplete("SCAN_BYTE_LIMIT", w.name, tr("Превышен суммарный лимит проверки"))
+		return 0, errors.New(tr("Превышен лимит данных CustomAV"))
 	}
 	if w.depth > 0 && uint64(len(p)) > avNestedLimit-w.run.nested {
-		w.run.incomplete("NESTED_SIZE_LIMIT", w.name, "Вложенные контейнеры ограничены 1 ГиБ")
-		return 0, errors.New("Превышен лимит вложенных данных")
+		w.run.incomplete("NESTED_SIZE_LIMIT", w.name, tr("Вложенные контейнеры ограничены 1 ГиБ"))
+		return 0, errors.New(tr("Превышен лимит вложенных данных"))
 	}
 	w.run.consumed += uint64(len(p))
 	if w.depth > 0 {
@@ -368,7 +368,7 @@ func (w *avWriter) Close() error {
 	w.closed = true
 	full := w.size <= avSampleLimit
 	if !full {
-		w.run.incomplete("FILE_ANALYSIS_LIMIT", w.name, "SHA-256 рассчитан полностью; правила применены только к первым 16 МиБ")
+		w.run.incomplete("FILE_ANALYSIS_LIMIT", w.name, tr("SHA-256 рассчитан полностью; правила применены только к первым 16 МиБ"))
 	}
 	kind := avMagic(w.sample)
 	idx := len(w.run.result.Files)
@@ -466,16 +466,16 @@ func (a *avRun) nameSignals(name string) {
 		bidi = bidi || c == 0x202e || c == 0x2066 || c == 0x2067 || c == 0x2068
 	}
 	if invisible {
-		a.add("medium", "UNICODE_HIDDEN_NAME", name, "Невидимые управляющие символы в имени", "review", 4)
+		a.add("medium", "UNICODE_HIDDEN_NAME", name, tr("Невидимые управляющие символы в имени"), "review", 4)
 	}
 	if nonascii && (avPE[ext] || avScripts[ext]) {
-		a.add("medium", "NONASCII_EXECUTABLE_NAME", name, "Не-ASCII имя приложения/скрипта", "review", 8)
+		a.add("medium", "NONASCII_EXECUTABLE_NAME", name, tr("Не-ASCII имя приложения/скрипта"), "review", 8)
 	}
 	if avDisguise.MatchString(base) {
-		a.add("high", "DOUBLE_EXTENSION", name, "Исполняемый файл замаскирован двойным расширением", "malware", 55)
+		a.add("high", "DOUBLE_EXTENSION", name, tr("Исполняемый файл замаскирован двойным расширением"), "malware", 55)
 	}
 	if bidi {
-		a.add("high", "BIDI_FILENAME", name, "Направление текста маскирует имя", "malware", 55)
+		a.add("high", "BIDI_FILENAME", name, tr("Направление текста маскирует имя"), "malware", 55)
 	}
 }
 func (a *avRun) analyze(name string, b []byte, full bool, depth int) {
@@ -489,7 +489,7 @@ func (a *avRun) analyze(name string, b []byte, full bool, depth int) {
 				a.add("high", "JAVA_HIGH_RISK_CONSTANT", name, strings.Join(hits, ", "), "malware", 45)
 			}
 		} else {
-			a.incomplete("JAVA_PARSE_LIMITED", name, "Некорректный constant pool")
+			a.incomplete("JAVA_PARSE_LIMITED", name, tr("Некорректный constant pool"))
 		}
 	}
 	a.nameSignals(name)
@@ -520,11 +520,11 @@ func (a *avRun) analyze(name string, b []byte, full bool, depth int) {
 	}
 	expected := map[string]map[string]bool{"pe": avPE, "zip": avArchiveExt, "faw": avArchiveExt, "rar": avArchiveExt, "7z": avArchiveExt, "pdf": {".pdf": true}, "ogg": {".ogg": true}, "gzip": avArchiveExt}
 	if ex, ok := expected[kind]; ok && ext != "" && !ex[ext] {
-		a.add("medium", "FORMAT_EXTENSION_MISMATCH", name, "Расширение "+ext+", обнаружен формат "+kind, "review", 18)
+		a.add("medium", "FORMAT_EXTENSION_MISMATCH", name, tr("Расширение ")+ext+tr(", обнаружен формат ")+kind, "review", 18)
 	}
 	if avScripts[ext] {
 		if len(b) > 2_000_000 {
-			a.incomplete("SCRIPT_ANALYSIS_LIMIT", name, "Правила скрипта ограничены первыми 2 МБ")
+			a.incomplete("SCRIPT_ANALYSIS_LIMIT", name, tr("Правила скрипта ограничены первыми 2 МБ"))
 		}
 		hits := avHits(b[:min(len(b), 2_000_000)], []string{"http://", "https://", "powershell", "certutil", "bitsadmin", "schtasks", "reg add", "reg.exe", "wmic", "curl ", "wget ", "encodedcommand", "frombase64string", "runonce", "\x00"})
 		if avLongB64.Match(b[:min(len(b), 2_000_000)]) {
@@ -533,7 +533,7 @@ func (a *avRun) analyze(name string, b []byte, full bool, depth int) {
 		if len(hits) > 0 {
 			a.add("high", "SCRIPT_CAPABILITY", name, strings.Join(hits, ", "), "malware", 45)
 		} else {
-			a.add("medium", "SCRIPT_FILE", name, "Скрипт требует ручной проверки", "review", 12)
+			a.add("medium", "SCRIPT_FILE", name, tr("Скрипт требует ручной проверки"), "review", 12)
 		}
 	}
 	switch kind {
@@ -556,7 +556,7 @@ func (a *avRun) analyze(name string, b []byte, full bool, depth int) {
 		}
 	case "text":
 		if len(b) > 10_000_000 {
-			a.incomplete("TEXT_ANALYSIS_LIMIT", name, "Текстовые эвристики ограничены 10 МБ")
+			a.incomplete("TEXT_ANALYSIS_LIMIT", name, tr("Текстовые эвристики ограничены 10 МБ"))
 		}
 		if len(b) <= 10_000_000 {
 			if h := avHits(b, avHighBytes); len(h) > 0 {
@@ -568,16 +568,16 @@ func (a *avRun) analyze(name string, b []byte, full bool, depth int) {
 		if full {
 			a.scanNestedZIP(name, b, depth)
 		} else {
-			a.incomplete("NESTED_ARCHIVE_LIMIT", name, "Большой вложенный ZIP не декодирован")
+			a.incomplete("NESTED_ARCHIVE_LIMIT", name, tr("Большой вложенный ZIP не декодирован"))
 		}
 	case "faw":
 		if full {
 			a.scanNestedFAW(name, b, depth)
 		} else {
-			a.incomplete("NESTED_ARCHIVE_LIMIT", name, "Большой вложенный FAW не декодирован")
+			a.incomplete("NESTED_ARCHIVE_LIMIT", name, tr("Большой вложенный FAW не декодирован"))
 		}
 	case "rar", "7z", "gzip", "bzip2", "xz":
-		a.incomplete("NESTED_CONTAINER_NOT_SCANNED", name, "Вложенный "+kind+" не декодирован")
+		a.incomplete("NESTED_CONTAINER_NOT_SCANNED", name, tr("Вложенный ")+kind+tr(" не декодирован"))
 	}
 	if kind != "pe" && kind != "zip" && kind != "text" {
 		if pos := bytes.Index(b[min(1, len(b)):len(b)], []byte("MZ")); pos >= 0 {
@@ -585,13 +585,13 @@ func (a *avRun) analyze(name string, b []byte, full bool, depth int) {
 			if pos+64 <= len(b) {
 				off := int(uint64(b[pos+60]) | uint64(b[pos+61])<<8 | uint64(b[pos+62])<<16 | uint64(b[pos+63])<<24)
 				if off > 0 && off < 4<<20 && pos+off+4 <= len(b) && bytes.Equal(b[pos+off:pos+off+4], []byte("PE\x00\x00")) {
-					a.add("medium", "EMBEDDED_PE_SIGNATURE", name, fmt.Sprintf("Смещение %d", pos), "review", 25)
+					a.add("medium", "EMBEDDED_PE_SIGNATURE", name, fmt.Sprintf(tr("Смещение %d"), pos), "review", 25)
 				}
 			}
 		}
 	}
 	if ext == ".tar" || ext == ".tgz" || ext == ".tbz2" || ext == ".txz" || (len(b) > 262 && string(b[257:262]) == "ustar") {
-		a.incomplete("NESTED_CONTAINER_NOT_SCANNED", name, "TAR-контейнер не декодирован")
+		a.incomplete("NESTED_CONTAINER_NOT_SCANNED", name, tr("TAR-контейнер не декодирован"))
 	}
 }
 func (a *avRun) urlSignals(name string, b []byte, rule string) {
@@ -618,7 +618,7 @@ func hashArchive(ctx context.Context, p string) (string, int64, error) {
 		return "", 0, e
 	}
 	if !st.Mode().IsRegular() || isLink(st) || platformUnsafe(p, st) || st.Size() > int64(maxTotal)+(1<<30) {
-		return "", 0, errors.New("Неподдерживаемый файл архива")
+		return "", 0, errors.New(tr("Неподдерживаемый файл архива"))
 	}
 	h := sha256.New()
 	c := &copying{ctx: ctx, total: st.Size(), report: func(int, string) {}}
@@ -648,7 +648,7 @@ func scanSecurity(ctx context.Context, p string, progress report) avResult {
 	}
 	if selectedName(ctx) != "" {
 		a.result.ScanScope = "selected_entry"
-		a.incomplete("PARTIAL_ARCHIVE_SCAN", "[archive]", "Проверка только одного entry не подтверждает весь архив")
+		a.incomplete("PARTIAL_ARCHIVE_SCAN", "[archive]", tr("Проверка только одного entry не подтверждает весь архив"))
 	}
 	if version > 0 {
 		ctx = context.WithValue(ctx, avMetadataVisitorKey{}, entryVisitor(func(entry archiveEntry) { a.nameSignals(entry.Name) }))
@@ -668,7 +668,7 @@ func scanSecurity(ctx context.Context, p string, progress report) avResult {
 	after, size, e := hashArchive(ctx, p)
 	if e != nil || hash != after || size != n {
 		a.result.IntegrityOK = false
-		a.incomplete("ARCHIVE_CHANGED", "[archive]", "Архив изменён или недоступен во время проверки")
+		a.incomplete("ARCHIVE_CHANGED", "[archive]", tr("Архив изменён или недоступен во время проверки"))
 	}
 	return a.finish()
 }
@@ -719,7 +719,7 @@ func secureUnpack(ctx context.Context, p, dest string, progress report) (avResul
 		after, size, e := hashArchive(ctx, p)
 		if e != nil || h != after || n != size {
 			a.result.IntegrityOK = false
-			a.incomplete("ARCHIVE_CHANGED", "[archive]", "Источник изменился во время распаковки")
+			a.incomplete("ARCHIVE_CHANGED", "[archive]", tr("Источник изменился во время распаковки"))
 		}
 		return a.requirePermit()
 	})
@@ -767,7 +767,7 @@ func securePreview(ctx context.Context, archive, name, root string, approved avR
 		return "", e
 	}
 	if h != approved.ArchiveSHA256 || n != approved.ArchiveSize {
-		return "", fmt.Errorf("Архив изменился после проверки — откройте его заново")
+		return "", fmt.Errorf("%s", tr("Архив изменился после проверки — откройте его заново"))
 	}
 	a := newRuntimeAV(ctx, progress)
 	a.result.ScanScope = "selected_entry"
@@ -779,7 +779,7 @@ func securePreview(ctx context.Context, archive, name, root string, approved avR
 		after, size, e := hashArchive(ctx, archive)
 		if e != nil || h != after || n != size {
 			a.result.IntegrityOK = false
-			a.incomplete("ARCHIVE_CHANGED", "[archive]", "Источник изменился во время просмотра")
+			a.incomplete("ARCHIVE_CHANGED", "[archive]", tr("Источник изменился во время просмотра"))
 		}
 		return a.requirePermit()
 	})

@@ -1,3 +1,3 @@
-module example.com/customav-integration
+module example.com/customav-faw-edition
 
 go 1.22

@@ -53,7 +53,7 @@ func modernDialog(save, folder bool, filter, title, initial, ext string) (string
 	var dlg *comObject
 	r, _, _ := proc(ole, "CoCreateInstance").Call(uintptr(unsafe.Pointer(&class)), 0, 1, uintptr(unsafe.Pointer(&iid)), uintptr(unsafe.Pointer(&dlg)))
 	if uint32(r) != 0 || dlg == nil {
-		return "", fmt.Errorf("Не удалось открыть современный диалог: 0x%x", uint32(r))
+		return "", fmt.Errorf(tr("Не удалось открыть современный диалог: 0x%x"), uint32(r))
 	}
 	defer dlg.release()
 	options := uintptr(0x40 | 0x800 | 0x8)
@@ -64,7 +64,7 @@ func modernDialog(save, folder bool, filter, title, initial, ext string) (string
 		options |= 0x20
 	}
 	if hr := dlg.call(9, options); hr != 0 {
-		return "", fmt.Errorf("Настройки диалога: 0x%x", hr)
+		return "", fmt.Errorf(tr("Настройки диалога: 0x%x"), hr)
 	}
 	dlg.call(17, ptr(u(title)))
 	type spec struct{ Name, Pattern *uint16 }
@@ -103,16 +103,16 @@ func modernDialog(save, folder bool, filter, title, initial, ext string) (string
 		return "", nil
 	}
 	if hr != 0 {
-		return "", fmt.Errorf("Диалог: 0x%x", hr)
+		return "", fmt.Errorf(tr("Диалог: 0x%x"), hr)
 	}
 	var item *comObject
 	if hr = dlg.call(20, uintptr(unsafe.Pointer(&item))); hr != 0 || item == nil {
-		return "", fmt.Errorf("Результат диалога: 0x%x", hr)
+		return "", fmt.Errorf(tr("Результат диалога: 0x%x"), hr)
 	}
 	defer item.release()
 	var p *uint16
 	if hr = item.call(5, 0x80058000, uintptr(unsafe.Pointer(&p))); hr != 0 {
-		return "", fmt.Errorf("Путь диалога: 0x%x", hr)
+		return "", fmt.Errorf(tr("Путь диалога: 0x%x"), hr)
 	}
 	result := wideString(p)
 	proc(ole, "CoTaskMemFree").Call(uintptr(unsafe.Pointer(p)))
@@ -121,7 +121,7 @@ func modernDialog(save, folder bool, filter, title, initial, ext string) (string
 func fileDialog(save, multi bool, filter, title, initial, ext string) []string {
 	p, e := modernDialog(save, false, filter, title, initial, ext)
 	if e != nil {
-		message("Выбор файла", e.Error(), 0x10)
+		message(tr("Выбор файла"), e.Error(), 0x10)
 		return nil
 	}
 	if p == "" {
@@ -132,7 +132,7 @@ func fileDialog(save, multi bool, filter, title, initial, ext string) []string {
 func folderDialog(title string) string {
 	p, e := modernDialog(false, true, "", title, "", "")
 	if e != nil {
-		message("Выбор папки", e.Error(), 0x10)
+		message(tr("Выбор папки"), e.Error(), 0x10)
 	}
 	return p
 }
@@ -146,7 +146,7 @@ func registerFAWOpenWith() error {
 		var key uintptr
 		r, _, _ := adv.NewProc("RegCreateKeyExW").Call(uintptr(syscall.HKEY_CURRENT_USER), ptr(u(sub)), 0, 0, 0, 2, 0, uintptr(unsafe.Pointer(&key)), 0)
 		if r != 0 {
-			return fmt.Errorf("Реестр: код %d", r)
+			return fmt.Errorf(tr("Реестр: код %d"), r)
 		}
 		defer adv.NewProc("RegCloseKey").Call(key)
 		v := syscall.StringToUTF16(value)
@@ -156,7 +156,7 @@ func registerFAWOpenWith() error {
 		}
 		r, _, _ = adv.NewProc("RegSetValueExW").Call(key, n, 0, 1, uintptr(unsafe.Pointer(&v[0])), uintptr(len(v)*2))
 		if r != 0 {
-			return fmt.Errorf("Реестр: код %d", r)
+			return fmt.Errorf(tr("Реестр: код %d"), r)
 		}
 		return nil
 	}

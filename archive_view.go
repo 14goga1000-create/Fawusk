@@ -34,7 +34,7 @@ type previewWriter struct {
 
 func (w *previewWriter) Write(p []byte) (int, error) {
 	if uint64(len(p)) > previewLimit-w.bytes {
-		return 0, errors.New("Просмотр ограничен 1 ГиБ")
+		return 0, errors.New(tr("Просмотр ограничен 1 ГиБ"))
 	}
 	n, e := w.WriteCloser.Write(p)
 	w.bytes += uint64(n)
@@ -54,7 +54,7 @@ func newExtractionSink(ctx context.Context, dest string) (*extractionSink, error
 		return s, nil
 	}
 	if _, e := os.Lstat(dest); e == nil {
-		return nil, errors.New("Папка назначения уже существует; выберите новую")
+		return nil, errors.New(tr("Папка назначения уже существует; выберите новую"))
 	} else if !os.IsNotExist(e) {
 		return nil, e
 	}
@@ -73,7 +73,7 @@ func (s *extractionSink) cleanup() {
 }
 func (s *extractionSink) directory(name string) error {
 	if (s.security != nil || entryFactory(s.ctx) != nil) && fawsecurity.UnsafePath(name) {
-		return errors.New("CustomAV Faw Edition: опасное имя папки")
+		return errors.New(tr("CustomAV Faw Edition: опасное имя папки"))
 	}
 	if s.security != nil {
 		s.security.nameSignals(name)
@@ -85,7 +85,7 @@ func (s *extractionSink) directory(name string) error {
 }
 func (s *extractionSink) file(name string) (io.WriteCloser, error) {
 	if (s.security != nil || entryFactory(s.ctx) != nil) && fawsecurity.UnsafePath(name) {
-		return nil, errors.New("CustomAV Faw Edition: опасное имя файла")
+		return nil, errors.New(tr("CustomAV Faw Edition: опасное имя файла"))
 	}
 	if factory := entryFactory(s.ctx); factory != nil && (s.selected == "" || s.selected == name) {
 		return factory(name)
@@ -170,7 +170,7 @@ func archiveVersion(p string) (int, error) {
 		return int(binary.LittleEndian.Uint16(h[8:10])), nil
 	}
 	if strings.EqualFold(filepath.Ext(p), ".faw") {
-		return 0, errors.New("Файл .faw не имеет корректной сигнатуры")
+		return 0, errors.New(tr("Файл .faw не имеет корректной сигнатуры"))
 	}
 	if strings.EqualFold(filepath.Ext(p), ".zip") {
 		return -1, nil
@@ -198,7 +198,7 @@ func scanArchive(ctx context.Context, p string, progress report) ([]archiveEntry
 			e = walkFAW3(ctx, p, "", progress, visit)
 		}
 	default:
-		e = errors.New("Неподдерживаемая версия архива")
+		e = errors.New(tr("Неподдерживаемая версия архива"))
 	}
 	if e != nil {
 		return nil, e
@@ -256,36 +256,36 @@ func (g *nameGuard) validate(name string, directory bool) error {
 		limit = fawMaxNames
 	}
 	if g.bytes > limit {
-		return errors.New("Превышен лимит имён FAW")
+		return errors.New(tr("Превышен лимит имён FAW"))
 	}
 	clean, e := safeName(name)
 	if e != nil {
 		return e
 	}
 	if clean != name {
-		return errors.New("Неверный путь FAW")
+		return errors.New(tr("Неверный путь FAW"))
 	}
 	key := strings.ToLower(name)
 	if g.explicit[key] {
-		return errors.New("Дублирующийся путь FAW")
+		return errors.New(tr("Дублирующийся путь FAW"))
 	}
 	if old, exists := g.types[key]; exists && old != directory {
-		return errors.New("Конфликт файлов и папок FAW")
+		return errors.New(tr("Конфликт файлов и папок FAW"))
 	}
 	g.explicit[key] = true
 	g.types[key] = directory
 	for p := name; p != "."; p = path.Dir(p) {
 		k := strings.ToLower(p)
 		if old, exists := g.canonical[k]; exists && old != p {
-			return errors.New("Неоднозначный регистр пути FAW")
+			return errors.New(tr("Неоднозначный регистр пути FAW"))
 		}
 		if _, exists := g.canonical[k]; !exists && len(g.canonical) >= maxFiles {
-			return errors.New("Превышен лимит компонентов путей")
+			return errors.New(tr("Превышен лимит компонентов путей"))
 		}
 		g.canonical[k] = p
 		if p != name {
 			if dir, exists := g.types[k]; exists && !dir {
-				return errors.New("Файл используется как папка FAW")
+				return errors.New(tr("Файл используется как папка FAW"))
 			}
 			g.types[k] = true
 		}

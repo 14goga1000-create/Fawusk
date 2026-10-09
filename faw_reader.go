@@ -20,7 +20,7 @@ func NewFawReader(p string) (*FawReader, error) {
 		return nil, e
 	}
 	if v < 1 || v > 3 {
-		return nil, errors.New("Неверная сигнатура или неподдерживаемая версия FAW")
+		return nil, errors.New(tr("Неверная сигнатура или неподдерживаемая версия FAW"))
 	}
 	return &FawReader{p, v}, nil
 }
@@ -54,7 +54,7 @@ func (r *FawReader) ReadAll(ctx context.Context, consumer func(archiveEntry) (io
 	factory := entryStreamFactory(func(name string) (io.WriteCloser, error) {
 		entry, ok := metadata[name]
 		if !ok || entry.Directory {
-			return nil, errors.New("Поток отсутствует в каталоге FAW")
+			return nil, errors.New(tr("Поток отсутствует в каталоге FAW"))
 		}
 		return consumer(entry)
 	})
@@ -85,7 +85,7 @@ func (r *FawReader) OpenEntry(ctx context.Context, name string) (io.ReadCloser, 
 		}
 	}
 	if !found {
-		return nil, errors.New("Entry отсутствует в FAW")
+		return nil, errors.New(tr("Entry отсутствует в FAW"))
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	ctx = context.WithValue(ctx, selectionKey{}, name)

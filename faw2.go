@@ -36,14 +36,14 @@ func packFAW2(ctx context.Context, inputs []string, output string, level int, pr
 		progress = func(int, string) {}
 	}
 	if !strings.EqualFold(filepath.Ext(output), ".faw") {
-		return errors.New("Имя архива должно заканчиваться на .faw")
+		return errors.New(tr("Имя архива должно заканчиваться на .faw"))
 	}
 	if _, e := os.Lstat(output); e == nil {
-		return errors.New("Файл назначения уже существует; выберите другое имя")
+		return errors.New(tr("Файл назначения уже существует; выберите другое имя"))
 	} else if !os.IsNotExist(e) {
 		return e
 	}
-	progress(0, "Проверка файлов…")
+	progress(0, tr("Проверка файлов…"))
 	entries, total, e := plan(ctx, inputs, output)
 	if e != nil {
 		return e
@@ -52,7 +52,7 @@ func packFAW2(ctx context.Context, inputs []string, output string, level int, pr
 	for _, it := range entries {
 		names += len(strings.TrimSuffix(it.name, "/"))
 		if names > fawMaxNames {
-			return errors.New("Слишком много данных имён: лимит 16 МиБ")
+			return errors.New(tr("Слишком много данных имён: лимит 16 МиБ"))
 		}
 	}
 	quality := zstd.SpeedFastest
@@ -118,10 +118,10 @@ func packFAW2(ctx context.Context, inputs []string, output string, level int, pr
 				return e
 			}
 			if !st.Mode().IsRegular() || st.Size() != it.info.Size() || !st.ModTime().Equal(it.info.ModTime()) || !os.SameFile(st, it.info) {
-				return errors.New("Исходный файл изменился во время упаковки")
+				return errors.New(tr("Исходный файл изменился во время упаковки"))
 			}
 			remaining := it.info.Size()
-			counter.label = "Упаковка: " + name
+			counter.label = tr("Упаковка: ") + name
 			for remaining > 0 {
 				if e = check(ctx); e != nil {
 					return e
@@ -159,14 +159,14 @@ func packFAW2(ctx context.Context, inputs []string, output string, level int, pr
 			var extra [1]byte
 			n, e := f.Read(extra[:])
 			if n != 0 || e != io.EOF {
-				return errors.New("Исходный файл изменился во время упаковки")
+				return errors.New(tr("Исходный файл изменился во время упаковки"))
 			}
 			after, e := f.Stat()
 			if e != nil {
 				return e
 			}
 			if after.Size() != st.Size() || !after.ModTime().Equal(st.ModTime()) {
-				return errors.New("Исходный файл изменился во время упаковки")
+				return errors.New(tr("Исходный файл изменился во время упаковки"))
 			}
 			return nil
 		}()
@@ -201,7 +201,7 @@ func packFAW2(ctx context.Context, inputs []string, output string, level int, pr
 	if e = publishFile(tempName, output); e != nil {
 		return e
 	}
-	progress(100, "Готово: "+output)
+	progress(100, tr("Готово: ")+output)
 	return nil
 }
 
@@ -223,7 +223,7 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 		return e
 	}
 	if !info.Mode().IsRegular() || info.Size() < 65 || uint64(info.Size()) > maxTotal+(1<<30) {
-		return errors.New("Неверный размер FAW")
+		return errors.New(tr("Неверный размер FAW"))
 	}
 	digest := sha256.New()
 	base := bufio.NewReaderSize(f, 128*1024)
@@ -233,12 +233,12 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 		return e
 	}
 	if !equalBytes(header[:8], fawMagic[:]) || binary.LittleEndian.Uint16(header[8:10]) != 2 || binary.LittleEndian.Uint16(header[10:12]) != 0 || binary.LittleEndian.Uint32(header[12:16]) != fawBlockSize || binary.LittleEndian.Uint32(header[28:32]) != crc32.ChecksumIEEE(header[:28]) {
-		return errors.New("Повреждён заголовок FAW 2")
+		return errors.New(tr("Повреждён заголовок FAW 2"))
 	}
 	expectedTotal := binary.LittleEndian.Uint64(header[16:24])
 	expectedCount := binary.LittleEndian.Uint32(header[24:28])
 	if expectedTotal > maxTotal || expectedCount > maxFiles {
-		return errors.New("Превышен безопасный лимит FAW")
+		return errors.New(tr("Превышен безопасный лимит FAW"))
 	}
 	sink, e := newExtractionSink(ctx, dest)
 	if e != nil {
@@ -260,23 +260,23 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 	count := uint32(0)
 	names := uint64(0)
 	counter := &copying{ctx: ctx, total: int64(expectedTotal), report: progress}
-	progress(0, "Распаковка FAW 2…")
+	progress(0, tr("Распаковка FAW 2…"))
 	for {
 		if e = check(ctx); e != nil {
 			return e
 		}
 		var kind [1]byte
 		if _, e = io.ReadFull(reader, kind[:]); e != nil {
-			return fmt.Errorf("Не завершён FAW: %w", e)
+			return fmt.Errorf(tr("Не завершён FAW: %w"), e)
 		}
 		if kind[0] == 0 {
 			break
 		}
 		if kind[0] != 1 && kind[0] != 2 {
-			return errors.New("Неизвестный тип записи FAW")
+			return errors.New(tr("Неизвестный тип записи FAW"))
 		}
 		if count >= expectedCount {
-			return errors.New("Лишние записи FAW")
+			return errors.New(tr("Лишние записи FAW"))
 		}
 		count++
 		var meta [20]byte
@@ -288,14 +288,14 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 		seconds := int64(binary.LittleEndian.Uint64(meta[12:20]))
 		names += uint64(nameSize)
 		if nameSize == 0 || nameSize > 3000 || names > fawMaxNames {
-			return errors.New("Превышен лимит имён FAW")
+			return errors.New(tr("Превышен лимит имён FAW"))
 		}
 		if (kind[0] == 1 && size != 0) || size > maxSingle || size > maxTotal-total {
-			return errors.New("Превышен безопасный лимит распаковки FAW")
+			return errors.New(tr("Превышен безопасный лимит распаковки FAW"))
 		}
 		total += size
 		if total > expectedTotal {
-			return errors.New("Размеры записей не совпадают с заголовком FAW")
+			return errors.New(tr("Размеры записей не совпадают с заголовком FAW"))
 		}
 		nameBytes := make([]byte, nameSize)
 		if _, e = io.ReadFull(reader, nameBytes); e != nil {
@@ -306,15 +306,15 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 			return e
 		}
 		if strings.HasSuffix(string(nameBytes), "/") {
-			return errors.New("FAW 2 не допускает завершающий слеш в имени")
+			return errors.New(tr("FAW 2 не допускает завершающий слеш в имени"))
 		}
 		key := strings.ToLower(name)
 		isDir := kind[0] == 1
 		if explicit[key] {
-			return errors.New("Дублирующийся путь FAW")
+			return errors.New(tr("Дублирующийся путь FAW"))
 		}
 		if old, exists := types[key]; exists && old != isDir {
-			return errors.New("Конфликт файлов и папок FAW")
+			return errors.New(tr("Конфликт файлов и папок FAW"))
 		}
 		explicit[key] = true
 		types[key] = isDir
@@ -322,15 +322,15 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 		for p := name; p != "."; p = path.Dir(p) {
 			k := strings.ToLower(p)
 			if old, exists := canonical[k]; exists && old != p {
-				return errors.New("Неоднозначный регистр пути FAW")
+				return errors.New(tr("Неоднозначный регистр пути FAW"))
 			}
 			if _, exists := canonical[k]; !exists && len(canonical) >= maxFiles {
-				return errors.New("Превышен лимит компонентов путей")
+				return errors.New(tr("Превышен лимит компонентов путей"))
 			}
 			canonical[k] = p
 			if p != name {
 				if directory, exists := types[k]; exists && !directory {
-					return errors.New("Файл используется как папка FAW")
+					return errors.New(tr("Файл используется как папка FAW"))
 				}
 				types[k] = true
 			}
@@ -352,7 +352,7 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 		e = func() error {
 			defer out.Close()
 			left := size
-			counter.label = "Распаковка: " + name
+			counter.label = tr("Распаковка: ") + name
 			for left > 0 {
 				if e = check(ctx); e != nil {
 					return e
@@ -365,7 +365,7 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 				storedSize := binary.LittleEndian.Uint32(block[4:8])
 				codec := block[8]
 				if rawSize == 0 || rawSize > fawBlockSize || uint64(rawSize) > left || storedSize == 0 || storedSize > rawSize || codec > 1 || (codec == 0 && storedSize != rawSize) {
-					return errors.New("Неверные размеры или кодек блока FAW")
+					return errors.New(tr("Неверные размеры или кодек блока FAW"))
 				}
 				if _, e = io.ReadFull(reader, stored[:storedSize]); e != nil {
 					return e
@@ -376,11 +376,11 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 				} else {
 					data, e = decoder.DecodeAll(stored[:storedSize], raw[:0:rawSize])
 					if e != nil {
-						return fmt.Errorf("Повреждён блок Zstandard: %w", e)
+						return fmt.Errorf(tr("Повреждён блок Zstandard: %w"), e)
 					}
 				}
 				if len(data) != int(rawSize) || crc32.ChecksumIEEE(data) != binary.LittleEndian.Uint32(block[9:13]) {
-					return errors.New("Контрольная сумма или размер блока FAW не совпадает")
+					return errors.New(tr("Контрольная сумма или размер блока FAW не совпадает"))
 				}
 				if _, e = out.Write(data); e != nil {
 					return e
@@ -401,7 +401,7 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 		}
 	}
 	if total != expectedTotal || count != expectedCount {
-		return errors.New("Неполный каталог FAW")
+		return errors.New(tr("Неполный каталог FAW"))
 	}
 	sum := digest.Sum(nil)
 	footer := make([]byte, 32)
@@ -409,10 +409,10 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 		return e
 	}
 	if !equalBytes(sum, footer) {
-		return errors.New("FAW повреждён: SHA-256 не совпадает")
+		return errors.New(tr("FAW повреждён: SHA-256 не совпадает"))
 	}
 	if _, e = base.ReadByte(); e != io.EOF {
-		return errors.New("Лишние данные после FAW")
+		return errors.New(tr("Лишние данные после FAW"))
 	}
 	if e = check(ctx); e != nil {
 		return e
@@ -420,6 +420,6 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 	if e = sink.publish(ctx); e != nil {
 		return e
 	}
-	progress(100, "Готово: "+dest)
+	progress(100, tr("Готово: ")+dest)
 	return nil
 }

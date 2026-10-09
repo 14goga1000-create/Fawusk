@@ -19,21 +19,25 @@ func sizeText(a archiveEntry) string {
 }
 func formatBytes(n uint64) string {
 	if n == 0 {
-		return "0 КБ"
+		return tr("0 КБ")
 	}
 	unit := uint64(1024)
-	label := "КБ"
+	label := tr("КБ")
 	if n >= 1<<30 {
 		unit = 1 << 30
-		label = "ГБ"
+		label = tr("ГБ")
 	} else if n >= 1<<20 {
 		unit = 1 << 20
-		label = "МБ"
+		label = tr("МБ")
 	}
 	if n < 11 {
-		return "<0,01 КБ"
+		return tr("<0,01 КБ")
 	}
-	return strings.ReplaceAll(fmt.Sprintf("%.2f %s", float64(n)/float64(unit), label), ".", ",")
+	s := fmt.Sprintf("%.2f %s", float64(n)/float64(unit), label)
+	if currentSettings().Language == "EN" {
+		return s
+	}
+	return strings.ReplaceAll(s, ".", ",")
 }
 func dateText(a archiveEntry) string {
 	if !a.DateKnown {
@@ -108,7 +112,7 @@ func readFolder(ctx context.Context, p string, progress report) ([]archiveEntry,
 		return nil, e
 	}
 	if len(list) > maxFiles {
-		return nil, fmt.Errorf("Лимит отображения — %d элементов", maxFiles)
+		return nil, fmt.Errorf(tr("Лимит отображения — %d элементов"), maxFiles)
 	}
 	rows := make([]archiveEntry, 0, len(list))
 	for i, d := range list {
@@ -127,7 +131,7 @@ func readFolder(ctx context.Context, p string, progress report) ([]archiveEntry,
 		}
 		rows = append(rows, a)
 		if progress != nil && i%128 == 0 {
-			progress(i*99/max(1, len(list)), "Чтение метаданных папки…")
+			progress(i*99/max(1, len(list)), tr("Чтение метаданных папки…"))
 		}
 	}
 	orderRows(rows, 0, false)

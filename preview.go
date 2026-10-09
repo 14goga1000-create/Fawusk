@@ -28,16 +28,16 @@ func previewAllowed(name string) error {
 	base := filepath.Base(strings.ReplaceAll(name, "/", string(filepath.Separator)))
 	for _, r := range base {
 		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
-			return errors.New("Неоднозначное имя файла: просмотр запрещён")
+			return errors.New(tr("Неоднозначное имя файла: просмотр запрещён"))
 		}
 	}
 	if !mediaTypes[strings.ToLower(filepath.Ext(base))] {
-		return errors.New("Этот тип нельзя открыть из архива. Сначала полностью распакуйте архив и проверьте файл")
+		return errors.New(tr("Этот тип нельзя открыть из архива. Сначала полностью распакуйте архив и проверьте файл"))
 	}
 	parts := strings.Split(strings.ToLower(base), ".")
 	for _, p := range parts[1:] {
 		if blockedTypes[p] {
-			return errors.New("Исполняемые файлы, скрипты и замаскированные расширения запрещены для просмотра")
+			return errors.New(tr("Исполняемые файлы, скрипты и замаскированные расширения запрещены для просмотра"))
 		}
 	}
 	return nil
@@ -50,7 +50,7 @@ func validatePreview(p string) error {
 	st, e := f.Stat()
 	if e != nil || !st.Mode().IsRegular() {
 		f.Close()
-		return errors.New("Просмотр доступен только для обычного файла")
+		return errors.New(tr("Просмотр доступен только для обычного файла"))
 	}
 	var head [512]byte
 	n, readErr := f.Read(head[:])
@@ -62,7 +62,7 @@ func validatePreview(p string) error {
 	b := head[:n]
 	s := string(b)
 	if strings.HasPrefix(s, "MZ") || strings.HasPrefix(s, "\x7fELF") || strings.HasPrefix(strings.TrimSpace(s), "#!") || strings.HasPrefix(s, "\xfe\xed\xfa") || strings.HasPrefix(s, "\xcf\xfa\xed\xfe") {
-		return errors.New("Обнаружена сигнатура приложения или скрипта: открытие запрещено")
+		return errors.New(tr("Обнаружена сигнатура приложения или скрипта: открытие запрещено"))
 	}
 	ext := strings.ToLower(filepath.Ext(p))
 	match := true
@@ -85,7 +85,7 @@ func validatePreview(p string) error {
 		return validateOffice(p)
 	}
 	if !match {
-		return errors.New("Содержимое не соответствует безопасному типу файла")
+		return errors.New(tr("Содержимое не соответствует безопасному типу файла"))
 	}
 	return nil
 }
@@ -110,20 +110,20 @@ func validateOffice(p string) error {
 	}
 	defer z.Close()
 	if len(z.File) > 10000 {
-		return errors.New("Слишком сложный документ")
+		return errors.New(tr("Слишком сложный документ"))
 	}
 	hasTypes := false
 	for _, f := range z.File {
 		name := strings.ReplaceAll(strings.ToLower(f.Name), "\\", "/")
 		if strings.Contains(name, "vba") || strings.Contains(name, "activex") || strings.Contains(name, "embeddings/") || strings.Contains(name, "customui/") {
-			return errors.New("Документ с макросами или активным содержимым: просмотр запрещён")
+			return errors.New(tr("Документ с макросами или активным содержимым: просмотр запрещён"))
 		}
 		if name == "[content_types].xml" || strings.HasSuffix(name, ".rels") {
 			if name == "[content_types].xml" {
 				hasTypes = true
 			}
 			if f.UncompressedSize64 > 1<<20 {
-				return errors.New("Неверный документ")
+				return errors.New(tr("Неверный документ"))
 			}
 			r, e := f.Open()
 			if e != nil {
@@ -141,26 +141,26 @@ func validateOffice(p string) error {
 					break
 				}
 				if e != nil {
-					return errors.New("Повреждён XML документа")
+					return errors.New(tr("Повреждён XML документа"))
 				}
 				if start, ok := token.(xml.StartElement); ok {
 					for _, a := range start.Attr {
 						if strings.EqualFold(a.Name.Local, "TargetMode") && strings.EqualFold(a.Value, "External") {
-							return errors.New("Документ с внешними связями: просмотр запрещён")
+							return errors.New(tr("Документ с внешними связями: просмотр запрещён"))
 						}
 						if strings.EqualFold(a.Name.Local, "ContentType") && strings.Contains(strings.ToLower(a.Value), "macroenabled") {
-							return errors.New("Макросодержащий документ запрещён")
+							return errors.New(tr("Макросодержащий документ запрещён"))
 						}
 					}
 				}
 			}
 			if strings.Contains(strings.ToLower(string(b)), "macroenabled") {
-				return errors.New("Макросодержащий документ запрещён")
+				return errors.New(tr("Макросодержащий документ запрещён"))
 			}
 		}
 	}
 	if !hasTypes {
-		return errors.New("Неверный Office-документ")
+		return errors.New(tr("Неверный Office-документ"))
 	}
 	return nil
 }
@@ -181,13 +181,13 @@ func extractSelected(ctx context.Context, archive, name, tempRoot string, progre
 		for _, a := range cat.Entries {
 			if a.Name == name && !a.Directory {
 				if a.Size > previewLimit {
-					return "", errors.New("Просмотр ограничен 1 ГиБ")
+					return "", errors.New(tr("Просмотр ограничен 1 ГиБ"))
 				}
 				found = true
 			}
 		}
 		if !found {
-			return "", errors.New("Файл отсутствует")
+			return "", errors.New(tr("Файл отсутствует"))
 		}
 	}
 	ctx = context.WithValue(ctx, selectionKey{}, name)

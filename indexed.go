@@ -51,10 +51,10 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 		progress = func(int, string) {}
 	}
 	if !strings.EqualFold(filepath.Ext(output), ".faw") {
-		return errors.New("Нужно расширение .faw")
+		return errors.New(tr("Нужно расширение .faw"))
 	}
 	if _, e := os.Lstat(output); !os.IsNotExist(e) {
-		return errors.New("Файл назначения уже существует или недоступен")
+		return errors.New(tr("Файл назначения уже существует или недоступен"))
 	}
 	if e := ensureParents(filepath.Dir(output)); e != nil {
 		return e
@@ -170,7 +170,7 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 		name := strings.TrimSuffix(it.name, "/")
 		names += len(name)
 		if names > fawMaxNames {
-			return errors.New("Слишком много имён")
+			return errors.New(tr("Слишком много имён"))
 		}
 		entry := indexedEntry{archiveEntry: archiveEntry{Name: name, Directory: it.info.IsDir()}, Stamp: it.info.ModTime().Unix(), Start: cursor}
 		if !entry.Directory {
@@ -180,7 +180,7 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 				return e
 			}
 			hash := sha256.New()
-			counter.label = "Упаковка: " + name
+			counter.label = tr("Упаковка: ") + name
 			e = func() error {
 				defer src.Close()
 				st, e := src.Stat()
@@ -188,7 +188,7 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 					return e
 				}
 				if !os.SameFile(st, it.info) || st.Size() != it.info.Size() || !st.ModTime().Equal(it.info.ModTime()) || !st.Mode().IsRegular() {
-					return errors.New("Исходный файл изменился")
+					return errors.New(tr("Исходный файл изменился"))
 				}
 				left := entry.Size
 				for left > 0 {
@@ -223,7 +223,7 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 					return e
 				}
 				if n != 0 || after.Size() != st.Size() || !after.ModTime().Equal(st.ModTime()) {
-					return errors.New("Исходный файл изменился")
+					return errors.New(tr("Исходный файл изменился"))
 				}
 				return nil
 			}()
@@ -267,7 +267,7 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 		}
 	}
 	if ix.Len() > indexLimit {
-		return errors.New("Каталог слишком велик")
+		return errors.New(tr("Каталог слишком велик"))
 	}
 	data := enc.EncodeAll(ix.Bytes(), nil)
 	codec := uint32(1)
@@ -307,11 +307,11 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 	if e = publishFile(f.Name(), output); e != nil {
 		return e
 	}
-	progress(100, "Готово")
+	progress(100, tr("Готово"))
 	return nil
 }
 func readCatalogue(ctx context.Context, p string) (cat catalogue, err error) {
-	bad := errors.New("Повреждён каталог FAW 3")
+	bad := errors.New(tr("Повреждён каталог FAW 3"))
 	f, e := os.Open(p)
 	if e != nil {
 		return cat, e
@@ -568,10 +568,10 @@ func walkIndexed(ctx context.Context, p, dest string, progress report, visit ent
 				cursor += n
 				left -= n
 				done += n
-				progress(int(done*99/max(1, cat.Total)), "Распаковка: "+a.Name)
+				progress(int(done*99/max(1, cat.Total)), tr("Распаковка: ")+a.Name)
 			}
 			if !equalBytes(hash.Sum(nil), a.Hash[:]) {
-				return errors.New("SHA-256 файла не совпадает")
+				return errors.New(tr("SHA-256 файла не совпадает"))
 			}
 			return nil
 		}()
@@ -581,7 +581,7 @@ func walkIndexed(ctx context.Context, p, dest string, progress report, visit ent
 		sink.timestamp(a.Name, time.Unix(a.Stamp, 0))
 	}
 	if !found {
-		return errors.New("Файл отсутствует в архиве")
+		return errors.New(tr("Файл отсутствует в архиве"))
 	}
 	return sink.publish(ctx)
 }

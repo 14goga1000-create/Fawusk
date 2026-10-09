@@ -23,7 +23,7 @@ func zipName(z *zip.File) (string, error) {
 	name := raw
 	if z.Flags&0x800 != 0 {
 		if !utf8.ValidString(name) {
-			return "", errors.New("Некорректное UTF-8 имя ZIP")
+			return "", errors.New(tr("Некорректное UTF-8 имя ZIP"))
 		}
 	} else {
 		var b strings.Builder
@@ -52,14 +52,14 @@ func zipName(z *zip.File) (string, error) {
 	}
 	name = strings.ReplaceAll(name, "\\", "/")
 	if strings.HasPrefix(name, "/") {
-		return "", errors.New("Абсолютный путь ZIP запрещён")
+		return "", errors.New(tr("Абсолютный путь ZIP запрещён"))
 	}
 	directory := strings.HasSuffix(name, "/")
 	parts := strings.Split(name, "/")
 	clean := make([]string, 0, len(parts))
 	for _, p := range parts {
 		if p == ".." {
-			return "", errors.New("Выход из папки ZIP запрещён")
+			return "", errors.New(tr("Выход из папки ZIP запрещён"))
 		}
 		if p == "" || p == "." {
 			continue
@@ -80,7 +80,7 @@ type zipRecord struct {
 
 func zipRecords(ctx context.Context, zr *zip.Reader) ([]zipRecord, uint64, error) {
 	if len(zr.File) > maxFiles {
-		return nil, 0, errors.New("Слишком много элементов ZIP")
+		return nil, 0, errors.New(tr("Слишком много элементов ZIP"))
 	}
 	guard := newNameGuard()
 	guard.byteLimit = maxDirectory
@@ -102,28 +102,28 @@ func zipRecords(ctx context.Context, zr *zip.Reader) ([]zipRecord, uint64, error
 		}
 		a := archiveEntry{Name: name, Size: z.UncompressedSize64, Directory: directory, SizeKnown: !directory, DateKnown: zipDateKnown(z), Modified: z.Modified.Unix()}
 		if isLink(z.FileInfo()) || (!directory && !z.Mode().IsRegular()) {
-			return nil, 0, errors.New("ZIP содержит ссылку или специальный файл")
+			return nil, 0, errors.New(tr("ZIP содержит ссылку или специальный файл"))
 		}
 		if z.Flags&0x41 != 0 || z.Method == 99 {
-			return nil, 0, errors.New("ZIP с паролем пока не поддерживается")
+			return nil, 0, errors.New(tr("ZIP с паролем пока не поддерживается"))
 		}
 		switch z.Method {
 		case zip.Store, zip.Deflate, 12, 20, 93:
 		default:
-			return nil, 0, fmt.Errorf("Метод ZIP %d не поддерживается; доступны Store, Deflate, BZip2 и Zstandard", z.Method)
+			return nil, 0, fmt.Errorf(tr("Метод ZIP %d не поддерживается; доступны Store, Deflate, BZip2 и Zstandard"), z.Method)
 		}
 		if directory && a.Size != 0 {
-			return nil, 0, errors.New("ZIP-папка содержит ненулевой размер данных")
+			return nil, 0, errors.New(tr("ZIP-папка содержит ненулевой размер данных"))
 		}
 		if a.Size > maxSingle || a.Size > maxTotal-total {
-			return nil, 0, errors.New("Превышен безопасный лимит распаковки: 8 ГиБ/файл, 20 ГиБ/архив")
+			return nil, 0, errors.New(tr("Превышен безопасный лимит распаковки: 8 ГиБ/файл, 20 ГиБ/архив"))
 		}
 		key := strings.ToLower(name)
 		if old, ok := seen[key]; ok {
 			if old.Directory && a.Directory && old.Name == name {
 				continue
 			}
-			return nil, 0, errors.New("Дублирующийся или неоднозначный путь ZIP")
+			return nil, 0, errors.New(tr("Дублирующийся или неоднозначный путь ZIP"))
 		}
 		if e = guard.validate(name, directory); e != nil {
 			return nil, 0, e

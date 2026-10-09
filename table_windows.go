@@ -72,7 +72,7 @@ func tableCell(a archiveEntry, col int) string {
 func initTable() {
 	control(idFiles, "SysListView32", "", 0x00800000|0x10000|0x1|0x4|0x8|0x400|0x1000)
 	send.Call(controls[idFiles], 0x1036, 0, 0x10020)
-	for i, title := range []string{"Имя", "Размер", "Дата изменения"} {
+	for i, title := range []string{tr("Имя"), tr("Размер"), tr("Дата изменения")} {
 		col := lvColumn{Mask: 0xf, Width: scaled([]int{350, 110, 170}[i]), SubItem: int32(i), Text: ptr(u(title))}
 		if i == 1 {
 			col.Format = 1
@@ -156,7 +156,7 @@ func tableNotification(lp uintptr) uintptr {
 			}
 			orderRows(rows, sortColumn, sortDescending)
 			refreshTable()
-			status("Сортировка: " + []string{"имя", "размер", "дата изменения"}[sortColumn])
+			status(tr("Сортировка: ") + []string{tr("имя"), tr("размер"), tr("дата изменения")}[sortColumn])
 		}
 		return 0
 	}
