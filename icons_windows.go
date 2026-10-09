@@ -4,7 +4,6 @@ package main
 // handlers, thumbnails, disk lookup, or per-file executable loading.
 import (
 	"path"
-	"path/filepath"
 	"strings"
 	"unsafe"
 )
@@ -116,14 +115,23 @@ func drawFileRow(lp uintptr) uintptr {
 	proc(gdi, "SetTextColor").Call(a.DC, uintptr(textColor))
 	old, _, _ := proc(gdi, "SelectObject").Call(a.DC, font)
 	defer proc(gdi, "SelectObject").Call(a.DC, old)
-	r := a.Bounds
-	r.Left = x + scaled(32)
-	r.Right -= scaled(8)
-	caption := path.Base(entry.Name)
-	if currentKind == "dir" {
-		caption = filepath.Base(entry.Name)
+
+	left := a.Bounds.Left
+	for col := 0; col < 3; col++ {
+		width, _, _ := send.Call(controls[idFiles], 0x101d, uintptr(col), 0)
+		r := a.Bounds
+		r.Left = left + scaled(8)
+		r.Right = left + int32(width) - scaled(8)
+		flags := uintptr(0x24 | 0x800 | 0x8000)
+		if col == 0 {
+			r.Left = x + scaled(32)
+		}
+		if col == 1 {
+			flags |= 2
+		}
+		proc(user, "DrawTextW").Call(a.DC, ptr(u(tableCell(entry, col))), ^uintptr(0), uintptr(unsafe.Pointer(&r)), flags)
+		left += int32(width)
 	}
-	proc(user, "DrawTextW").Call(a.DC, ptr(u(caption)), ^uintptr(0), uintptr(unsafe.Pointer(&r)), 0x24|0x800|0x8000)
 	if a.State&0x10 != 0 {
 		proc(user, "DrawFocusRect").Call(a.DC, uintptr(unsafe.Pointer(&a.Bounds)))
 	}

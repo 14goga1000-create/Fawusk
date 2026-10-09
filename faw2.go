@@ -333,12 +333,13 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 			}
 		}
 		if visit != nil {
-			visit(archiveEntry{Name: name, Size: size, Directory: isDir})
+			visit(archiveEntry{Name: name, Size: size, Directory: isDir, SizeKnown: !isDir, Modified: seconds, DateKnown: true})
 		}
 		if isDir {
 			if e = sink.directory(name); e != nil {
 				return e
 			}
+			sink.directoryTimestamp(name, time.Unix(seconds, 0))
 			continue
 		}
 		out, e := sink.file(name)

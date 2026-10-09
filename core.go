@@ -17,7 +17,7 @@ import (
 	"unicode/utf8"
 )
 
-const appVersion = "alpha 0.5"
+const appVersion = "alpha 0.6"
 const maxFiles = 100000
 const maxTotal = uint64(20) << 30
 const maxSingle = uint64(8) << 30
@@ -441,9 +441,10 @@ func archive(ctx context.Context, path string, progress report) (*os.File, *zip.
 		return fail(e)
 	}
 	zr, e := zip.NewReader(reader, size)
-	if e != nil {
+	if e != nil && !(e == zip.ErrInsecurePath && zr != nil) {
 		return fail(e)
 	}
+	registerZipCodecs(zr)
 	return f, zr, nil
 }
 func equalBytes(a, b []byte) bool {
@@ -483,57 +484,30 @@ func walkLegacy(ctx context.Context, path, dest string, progress report, visit e
 		progress = func(int, string) {}
 	}
 	if strings.EqualFold(filepath.Ext(path), ".rar") {
-		return errors.New("RAR в alpha 0.5 не поддерживается. Для тестирования используйте ZIP или FAW")
+		return errors.New("RAR в alpha 0.6 не поддерживается. Для тестирования используйте ZIP или FAW")
 	}
 	f, zr, e := archive(ctx, path, progress)
 	if e != nil {
 		return e
 	}
 	defer f.Close()
-	if len(zr.File) > maxFiles {
-		return errors.New("Слишком много элементов")
+	records, total, e := zipRecords(ctx, zr)
+	if e != nil {
+		return e
 	}
-	seen := map[string]bool{}
-	types := map[string]bool{}
-	guard := newNameGuard()
-	guard.byteLimit = maxDirectory
-	var total uint64
-	for _, z := range zr.File {
-		if e = check(ctx); e != nil {
-			return e
-		}
-		name, e := safeName(z.Name)
-		if e != nil {
-			return e
-		}
-		if e = guard.validate(name, z.FileInfo().IsDir()); e != nil {
-			return e
-		}
-		key := strings.ToLower(name)
-		if seen[key] {
-			return fmt.Errorf("Дублирующийся путь: %s", name)
-		}
-		seen[key] = true
-		types[key] = z.FileInfo().IsDir()
-		if isLink(z.FileInfo()) || (!z.FileInfo().IsDir() && !z.Mode().IsRegular()) {
-			return errors.New("Архив содержит ссылку или специальный файл")
-		}
-		if z.Flags&1 != 0 {
-			return errors.New("Зашифрованные ZIP пока не поддерживаются")
-		}
-		if z.Method != zip.Store && z.Method != zip.Deflate {
-			return errors.New("Метод сжатия ZIP пока не поддерживается")
-		}
-		if z.UncompressedSize64 > maxSingle || z.UncompressedSize64 > maxTotal-total {
-			return errors.New("Превышен безопасный лимит распаковки: 8 ГиБ/файл, 20 ГиБ/архив")
-		}
-		total += z.UncompressedSize64
-	}
-	for name := range types {
-		for p := strings.TrimSuffix(filepath.ToSlash(filepath.Dir(name)), "/"); p != "." && p != ""; p = filepath.ToSlash(filepath.Dir(p)) {
-			if dir, ok := types[p]; ok && !dir {
-				return errors.New("Конфликт файлов и папок в архиве")
+	selected := selectedName(ctx)
+	if selected != "" {
+		found := false
+		for _, r := range records {
+			if r.entry.Name == selected && !r.entry.Directory {
+				found = true
+				if r.entry.Size > previewLimit {
+					return errors.New("Просмотр ограничен 1 ГиБ")
+				}
 			}
+		}
+		if !found {
+			return errors.New("Файл отсутствует в ZIP")
 		}
 	}
 	sink, e := newExtractionSink(dest)
@@ -544,17 +518,25 @@ func walkLegacy(ctx context.Context, path, dest string, progress report, visit e
 	defer sink.cleanup()
 	counter := &copying{ctx: ctx, total: int64(total), report: progress}
 	buffer := make([]byte, 128*1024)
-	for _, z := range zr.File {
+	for _, record := range records {
+		z := record.file
+		meta := record.entry
+		if selected != "" && meta.Name != selected {
+			continue
+		}
 		if e = check(ctx); e != nil {
 			return e
 		}
-		name, _ := safeName(z.Name)
+		name := meta.Name
 		if visit != nil {
-			visit(archiveEntry{Name: name, Size: z.UncompressedSize64, Directory: z.FileInfo().IsDir()})
+			visit(meta)
 		}
-		if z.FileInfo().IsDir() {
+		if meta.Directory {
 			if e = sink.directory(name); e != nil {
 				return e
+			}
+			if meta.DateKnown {
+				sink.directoryTimestamp(name, z.Modified)
 			}
 			continue
 		}

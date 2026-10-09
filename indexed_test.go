@@ -301,8 +301,18 @@ func TestMakeReleaseDemo(t *testing.T) {
 	}
 	src := filepath.Join(root, "Пример")
 	os.MkdirAll(filepath.Join(src, "Документы"), 0700)
-	os.WriteFile(filepath.Join(src, "Заметки.txt"), []byte("\xef\xbb\xbfFawusk alpha 0.5\nОткрыт только выбранный файл.\nИсходники остаются без изменений.\n"), 0600)
+	os.WriteFile(filepath.Join(src, "Заметки.txt"), []byte("\xef\xbb\xbfFawusk alpha 0.6\nОткрыт только выбранный файл.\nИсходники остаются без изменений.\n"), 0600)
 	os.WriteFile(filepath.Join(src, "Документы", "Прочитай.txt"), []byte("Тестовая папка для навигации."), 0600)
+	stamp := time.Date(2026, 10, 8, 12, 34, 0, 0, time.UTC)
+	i := 0
+	filepath.Walk(src, func(p string, st os.FileInfo, e error) error {
+		if e == nil {
+			t := stamp.Add(time.Duration(i) * time.Hour)
+			os.Chtimes(p, t, t)
+			i++
+		}
+		return e
+	})
 	out := filepath.Join(root, "Пример.faw")
 	os.Remove(out)
 	if e = packFAW3(context.Background(), []string{src}, out, 1, nil); e != nil {

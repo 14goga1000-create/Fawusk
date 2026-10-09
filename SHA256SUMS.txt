@@ -1,3 +1,3 @@
-01b6887e2ff908fc3dc92c7a7388e5e7e52aa511dd8e3379b24eb243611fd123  Fawusk-alpha-0.5.exe
-bccd53b592b9aad529fe31bebc21f6092f2c2fafc9e46e8c44ad9f9e714b6d28  docs/release-cover.png
-c28e6310179fae0e76dbb24fd240a22453a68839dcd8ef58f81adf6876572d8d  examples/sample-faw5.faw
+4b4bfa9f6cc36aea85ecb944180afe8ed4c53796a659f04318f066539d71d6da  Fawusk-alpha-0.6.exe
+0c5b2703f740f7f420e6063b60c6a1d4d305ecbfdb595c7af76e58e56b6b7d91  docs/release-cover.png
+7409695f1f53a153a3f0b322f7974539fb18861ade3628079afb9ce43b72d6d5  examples/sample-faw6.faw

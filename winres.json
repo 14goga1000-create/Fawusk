@@ -12,9 +12,9 @@
       "0409": {
         "identity": {
           "name": "Fawusk.Archiver",
-          "version": "0.5.0.0"
+          "version": "0.6.0.0"
         },
-        "description": "Fawusk alpha 0.5",
+        "description": "Fawusk alpha 0.6",
         "minimum-os": "win10",
         "execution-level": "as invoker",
         "ui-access": false,
@@ -36,16 +36,16 @@
     "#1": {
       "0000": {
         "fixed": {
-          "file_version": "0.5.0.0",
-          "product_version": "0.5.0.0"
+          "file_version": "0.6.0.0",
+          "product_version": "0.6.0.0"
         },
         "info": {
           "0409": {
-            "FileDescription": "Fawusk alpha 0.5 - portable archiver",
-            "FileVersion": "0.5.0.0 (alpha 0.5)",
+            "FileDescription": "Fawusk alpha 0.6 - portable archiver",
+            "FileVersion": "0.6.0.0 (alpha 0.6)",
             "ProductName": "Fawusk",
-            "ProductVersion": "alpha 0.5",
-            "OriginalFilename": "Fawusk-alpha-0.5.exe",
+            "ProductVersion": "alpha 0.6",
+            "OriginalFilename": "Fawusk-alpha-0.6.exe",
             "InternalName": "Fawusk",
             "Comments": "Indexed FAW 3 solid groups, FAW 1/2 and ZIP, restricted file preview, single-path browser."
           }

@@ -449,6 +449,9 @@ func readCatalogue(ctx context.Context, p string) (cat catalogue, err error) {
 			}
 			cursor += sz
 		}
+		a.SizeKnown = !a.Directory
+		a.Modified = a.Stamp
+		a.DateKnown = true
 		cat.Entries = append(cat.Entries, a)
 	}
 	if cursor != cat.Total || r.Len() != 0 {
@@ -515,6 +518,7 @@ func walkIndexed(ctx context.Context, p, dest string, progress report, visit ent
 			if e = sink.directory(a.Name); e != nil {
 				return e
 			}
+			sink.directoryTimestamp(a.Name, time.Unix(a.Stamp, 0))
 			continue
 		}
 		w, e := sink.file(a.Name)

@@ -1,5 +1,12 @@
 # Changelog
 
+## Alpha 0.6
+- Native virtual report table: Name/Size/Modified, graphical icons, column sorting, folders first.
+- Background cancellable folder metadata; compact FAW 3 sizes/dates projected without format change; missing metadata not fabricated.
+- Broader ZIP support: CP437/Unicode Path, safe path normalization, ZIP64, BZip2 and Zstandard; catalogue-only listing and selected-entry extraction.
+- Empty files/directories and directory-record deduplication; directories excluded from payload sums; directory timestamps restored after contents.
+- Independent ZIP fixtures and expanded metadata/CRC/path/empty-table/fuzz tests. No native Windows or four-core performance claim.
+
 ## Alpha 0.5
 - Human FAW 2 Classic label; native vector folder/archive/file pictograms, larger owner-drawn rows, no emoji.
 - Four-core-oriented capped codec budget: up to three workers plus I/O/file hashing; buffers reused in both compression and prefetch/decode pipelines.

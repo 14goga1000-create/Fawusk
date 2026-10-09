@@ -17,6 +17,9 @@ type archiveEntry struct {
 	Name      string
 	Size      uint64
 	Directory bool
+	SizeKnown bool
+	Modified  int64
+	DateKnown bool
 }
 type entryVisitor func(archiveEntry)
 type discardCloser struct{ io.Writer }
@@ -37,7 +40,10 @@ func (w *previewWriter) Write(p []byte) (int, error) {
 	return n, e
 }
 
-type extractionSink struct{ stage, dest, selected string }
+type extractionSink struct {
+	stage, dest, selected string
+	directoryTimes        map[string]time.Time
+}
 
 func newExtractionSink(dest string) (*extractionSink, error) {
 	s := &extractionSink{dest: dest}
@@ -87,12 +93,23 @@ func (s *extractionSink) timestamp(name string, t time.Time) {
 		os.Chtimes(filepath.Join(s.stage, filepath.FromSlash(name)), t, t)
 	}
 }
+func (s *extractionSink) directoryTimestamp(name string, t time.Time) {
+	if s.stage != "" && s.selected == "" {
+		if s.directoryTimes == nil {
+			s.directoryTimes = map[string]time.Time{}
+		}
+		s.directoryTimes[name] = t
+	}
+}
 func (s *extractionSink) publish(ctx context.Context) error {
 	if e := check(ctx); e != nil {
 		return e
 	}
 	if s.stage == "" {
 		return nil
+	}
+	for name, t := range s.directoryTimes {
+		os.Chtimes(filepath.Join(s.stage, filepath.FromSlash(name)), t, t)
 	}
 	return publishDirectory(s.stage, s.dest)
 }
@@ -123,7 +140,9 @@ func scanArchive(ctx context.Context, p string, progress report) ([]archiveEntry
 	var result []archiveEntry
 	visit := func(a archiveEntry) { result = append(result, a) }
 	switch version {
-	case 1, -1:
+	case -1:
+		return scanZipCatalogue(ctx, p, progress)
+	case 1:
 		e = walkLegacy(ctx, p, "", progress, visit)
 	case 2:
 		e = walkFAW2(ctx, p, "", progress, visit)
@@ -155,12 +174,12 @@ func archiveChildren(entries []archiveEntry, prefix string) []archiveEntry {
 		_ = rest
 		name := prefix + first
 		if found {
-			rows[name] = archiveEntry{Name: name, Directory: true}
+			if _, ok := rows[name]; !ok {
+				rows[name] = archiveEntry{Name: name, Directory: true}
+			}
 			continue
 		}
-		if old, ok := rows[name]; !ok || !old.Directory {
-			rows[name] = a
-		}
+		rows[name] = a
 	}
 	out := make([]archiveEntry, 0, len(rows))
 	for _, a := range rows {

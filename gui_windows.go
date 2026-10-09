@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -56,6 +54,7 @@ type uiUpdate struct {
 	err     error
 	path    string
 	scan    bool
+	folder  bool
 	preview bool
 	entries []archiveEntry
 }
@@ -227,6 +226,7 @@ func layout() {
 	move(idPath, m, 133, full-92, 34)
 	move(idUp, w-m-80, 131, 80, 38)
 	move(idFiles, m, 185, full, h-355)
+	resizeTable(full)
 	move(idEmpty, m, 235, full, 38)
 	move(idEmptyHint, m, 278, full, 44)
 	y := h - 128
@@ -253,22 +253,9 @@ func outputExt() string {
 	}
 	return "faw"
 }
-func selected() int { r, _, _ := send.Call(controls[idFiles], 0x188, 0, 0); return int(int32(r)) }
+func selected() int { return selectedTableRow() }
 func refresh() {
-	send.Call(controls[idFiles], 0x184, 0, 0)
-	width := 0
-	for _, a := range rows {
-		caption := path.Base(a.Name)
-		if currentKind == "dir" {
-			caption = filepath.Base(a.Name)
-		}
-
-		send.Call(controls[idFiles], 0x180, 0, ptr(u(caption)))
-		if n := len([]rune(caption))*9 + 52; n > width {
-			width = n
-		}
-	}
-	send.Call(controls[idFiles], 0x194, uintptr(scaled(width)), 0)
+	refreshTable()
 	display := currentPath
 	if archivePrefix != "" {
 		display += "  ›  " + strings.TrimSuffix(archivePrefix, "/")
@@ -277,17 +264,19 @@ func refresh() {
 	caption := "Один файл или папка на окно"
 	switch currentKind {
 	case "dir":
-		caption = fmt.Sprintf("Папка · %d элементов", len(rows))
+		t := totals(rows)
+		caption = "Папка · " + countText(t.Files, "файл", "файла", "файлов") + " · " + countText(t.Directories, "папка", "папки", "папок")
 	case "file":
 		caption = "Обычный файл"
 	case "archive":
-		caption = fmt.Sprintf("Архив · %d элементов", len(rows))
+		t := totals(rows)
+		caption = "Архив · " + countText(t.Files, "файл", "файла", "файлов") + " · " + countText(t.Directories, "папка", "папки", "папок")
 	}
 	setText.Call(controls[idFileLabel], ptr(u(caption)))
 	hasList := currentKind == "dir" || currentKind == "archive"
-	show(idFiles, hasList && len(rows) > 0)
-	show(idEmpty, (currentKind == "" || hasList && len(rows) == 0))
-	show(idEmptyHint, currentKind == "" || hasList && len(rows) == 0)
+	show(idFiles, hasList)
+	show(idEmpty, currentKind == "")
+	show(idEmptyHint, currentKind == "")
 	if currentKind == "" {
 		setText.Call(controls[idEmpty], ptr(u("Откройте файл или папку")))
 		setText.Call(controls[idEmptyHint], ptr(u("или перетащите один путь в окно")))
@@ -359,35 +348,19 @@ func openPath(p string) {
 	resultPath = ""
 	if info.IsDir() {
 		currentKind = "dir"
-		folder, e := os.Open(absolute)
-		if e != nil {
-			refresh()
-			message("Чтение папки", e.Error(), 0x10)
-			return
-		}
-		dir, e := folder.ReadDir(maxFiles + 1)
-		folder.Close()
-		if e != nil && e != io.EOF {
-			refresh()
-			message("Чтение папки", e.Error(), 0x10)
-			return
-		}
-		if len(dir) > maxFiles {
-			refresh()
-			message("Чтение папки", "Лимит отображения — 100 000 элементов", 0x40)
-			return
-		}
-		for _, d := range dir {
-			rows = append(rows, archiveEntry{Name: filepath.Join(absolute, d.Name()), Directory: d.IsDir()})
-		}
-		sort.Slice(rows, func(i, j int) bool {
-			if rows[i].Directory != rows[j].Directory {
-				return rows[i].Directory
-			}
-			return strings.ToLower(rows[i].Name) < strings.ToLower(rows[j].Name)
-		})
-		refresh()
-		status("Двойной клик: папка — переход, файл — внешнее приложение")
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancelWork = cancel
+		taskKind = "folder"
+		setBusy(true)
+		status("Чтение папки…")
+		go func() {
+			a, e := readFolder(ctx, absolute, notify)
+			mu.Lock()
+			statusUpdates = append(statusUpdates, uiUpdate{done: true, err: e, scan: true, folder: true, entries: a})
+			mu.Unlock()
+			post.Call(mainWindow, wmUpdate, 0, 0)
+		}()
 		return
 	}
 	version, e := archiveVersion(absolute)
@@ -425,6 +398,9 @@ func activateRow() {
 		if a.Directory {
 			archivePrefix = a.Name + "/"
 			rows = archiveChildren(entries, archivePrefix)
+			if sortColumn != 0 || sortDescending {
+				orderRows(rows, sortColumn, sortDescending)
+			}
 			refresh()
 			status("Двойной клик — просмотр медиа и документов")
 		} else {
@@ -470,6 +446,9 @@ func goUp() {
 			archivePrefix = p + "/"
 		}
 		rows = archiveChildren(entries, archivePrefix)
+		if sortColumn != 0 || sortDescending {
+			orderRows(rows, sortColumn, sortDescending)
+		}
 		refresh()
 	}
 }
@@ -613,6 +592,8 @@ func pathProc(hwnd uintptr, msg uint32, wparam, lparam uintptr) uintptr {
 }
 func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 	switch messageID {
+	case 0x4e:
+		return tableNotification(lparam)
 	case 0x2b:
 		return drawFileRow(lparam)
 	case 0x2c:
@@ -638,8 +619,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		control(idPath, "EDIT", "", 0x00800000|0x10000|0x80|0x800)
 		pathOldProc, _, _ = proc(user, "SetWindowLongPtrW").Call(controls[idPath], ^uintptr(3), syscall.NewCallback(pathProc))
 		button(idUp, "Вверх")
-		control(idFiles, "LISTBOX", "", 0x00800000|0x00200000|0x00100000|0x10000|0x151)
-		send.Call(controls[idFiles], 0x1a0, 0, uintptr(scaled(32)))
+		initTable()
 		control(idEmpty, "STATIC", "Откройте файл или папку", 1)
 		control(idEmptyHint, "STATIC", "или перетащите один путь в окно", 1)
 		label(idFormatLabel, "Формат архива")
@@ -751,12 +731,22 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 					status("Операция не завершена")
 					message("Fawusk — ошибка", v.err.Error(), 0x10)
 				}
+			} else if v.folder {
+				rows = v.entries
+				if sortColumn != 0 || sortDescending {
+					orderRows(rows, sortColumn, sortDescending)
+				}
+				refresh()
+				status("Известный размер файлов: " + formatBytes(totals(rows).Bytes) + " · Двойной клик — открыть")
 			} else if v.scan {
 				archiveReady = true
 				entries = v.entries
 				rows = archiveChildren(entries, archivePrefix)
+				if sortColumn != 0 || sortDescending {
+					orderRows(rows, sortColumn, sortDescending)
+				}
 				refresh()
-				status("Каталог прочитан · двойной клик — безопасный просмотр")
+				status("Данные архива: " + formatBytes(totals(entries).Bytes) + " · Двойной клик — просмотр")
 			} else if v.preview {
 				openExternal(v.path)
 				status("Открыт только выбранный файл · приложение Windows")
@@ -784,6 +774,9 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 	case 2:
 		shutdownPreviews()
 		destroyIconBrushes()
+		if tableImages != 0 {
+			proc(common, "ImageList_Destroy").Call(tableImages)
+		}
 		for _, f := range []uintptr{font, headingFont, smallFont} {
 			proc(gdi, "DeleteObject").Call(f)
 		}
@@ -815,7 +808,7 @@ func main() {
 		}
 	}
 	instance, _, _ = kernel.NewProc("GetModuleHandleW").Call(0)
-	init := struct{ Size, Classes uint32 }{8, 0x20}
+	init := struct{ Size, Classes uint32 }{8, 0x21}
 	proc(common, "InitCommonControlsEx").Call(uintptr(unsafe.Pointer(&init)))
 	bg, _, _ = proc(gdi, "CreateSolidBrush").Call(0x00F7F8F9)
 	cursor, _, _ := proc(user, "LoadCursorW").Call(0, 32512)

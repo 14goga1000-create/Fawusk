@@ -285,12 +285,13 @@ func walkFAW3(ctx context.Context, p, dest string, progress report, visit entryV
 			return e
 		}
 		if visit != nil {
-			visit(archiveEntry{Name: name, Size: size, Directory: kind == 1})
+			visit(archiveEntry{Name: name, Size: size, Directory: kind == 1, SizeKnown: kind == 2, Modified: seconds, DateKnown: true})
 		}
 		if kind == 1 {
 			if e = sink.directory(name); e != nil {
 				return e
 			}
+			sink.directoryTimestamp(name, time.Unix(seconds, 0))
 			continue
 		}
 		out, e := sink.file(name)

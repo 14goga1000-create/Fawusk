@@ -63,17 +63,22 @@ func TestWindowsGUI(t *testing.T) {
 	for time.Now().Before(deadline) {
 		list, _, _ = dlgItem.Call(hwnd, idFiles)
 		field, _, _ = dlgItem.Call(hwnd, idPath)
-		n, _, _ := send.Call(list, 0x18b, 0, 0)
+		n, _, _ := send.Call(list, 0x1004, 0, 0)
 		if n == 2 {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	n, _, _ := send.Call(list, 0x18b, 0, 0)
+	n, _, _ := send.Call(list, 0x1004, 0, 0)
 	if n != 2 {
 		t.Fatal("directory content not shown", n)
 	}
-	send.Call(list, 0x186, 0, 0)
+	header, _, _ := send.Call(list, 0x101f, 0, 0)
+	columns, _, _ := send.Call(header, 0x1200, 0, 0)
+	if columns != 3 {
+		t.Fatal("table headers", columns)
+	}
+	send.Call(list, 0x100, 0x24, 0)
 	post.Call(hwnd, 0x111, idFiles|(2<<16), list)
 	deadline = time.Now().Add(4 * time.Second)
 	for time.Now().Before(deadline) && !strings.HasSuffix(remoteText(field), "subfolder") {
@@ -89,6 +94,15 @@ func TestWindowsGUI(t *testing.T) {
 	}
 	if remoteText(field) != src {
 		t.Fatal("parent navigation failed", remoteText(field))
+	}
+	packButton, _, _ := dlgItem.Call(hwnd, idPack)
+	deadline = time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		ready, _, _ := proc(user, "IsWindowEnabled").Call(packButton)
+		if ready != 0 {
+			break
+		}
+		time.Sleep(30 * time.Millisecond)
 	}
 	post.Call(hwnd, 0x111, idPack, 0)
 	dialog := waitWindow(t, "Создать архив", cmd.Process.Pid)
@@ -170,7 +184,7 @@ func TestWindowsPlainFileView(t *testing.T) {
 		t.Fatal("one opened path not displayed")
 	}
 	visible, _, _ := proc(user, "IsWindowVisible").Call(list)
-	n, _, _ := send.Call(list, 0x18b, 0, 0)
+	n, _, _ := send.Call(list, 0x1004, 0, 0)
 	if visible != 0 || n != 0 {
 		t.Fatal("plain file must not display directory/contents")
 	}
@@ -215,4 +229,36 @@ func TestWindowsLockedPreviewCleanup(t *testing.T) {
 	if _, e = os.Stat(root); !os.IsNotExist(e) {
 		t.Fatal("root left behind")
 	}
+}
+
+func TestWindowsEmptyTable(t *testing.T) {
+	exe := os.Getenv("FAWUSK_GUI_EXE")
+	if exe == "" {
+		t.Skip("GUI opt-in")
+	}
+	root := t.TempDir()
+	cmd := exec.Command(exe, root)
+	if e := cmd.Start(); e != nil {
+		t.Fatal(e)
+	}
+	defer cmd.Wait()
+	defer cmd.Process.Kill()
+	hwnd := waitWindow(t, "Fawusk "+appVersion, cmd.Process.Pid)
+	var list uintptr
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		list, _, _ = proc(user, "GetDlgItem").Call(hwnd, idFiles)
+		ready, _, _ := proc(user, "IsWindowVisible").Call(list)
+		if ready != 0 {
+			break
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+	count, _, _ := send.Call(list, 0x1004, 0, 0)
+	header, _, _ := send.Call(list, 0x101f, 0, 0)
+	columns, _, _ := send.Call(header, 0x1200, 0, 0)
+	if count != 0 || columns != 3 {
+		t.Fatal("empty table wrong", count, columns)
+	}
+	post.Call(hwnd, 0x10, 0, 0)
 }

@@ -116,7 +116,7 @@ func malicious(t *testing.T, entries []string) string {
 	return p
 }
 func TestTraversal(t *testing.T) {
-	for _, n := range []string{"../escape.txt", "/escape.txt", "C:/escape.txt", "a\\escape.txt", "CON.txt"} {
+	for _, n := range []string{"../escape.txt", "/escape.txt", "C:/escape.txt", "..\\escape.txt", "C:\\escape.txt", "CON.txt"} {
 		p := malicious(t, []string{n})
 		dest := filepath.Join(filepath.Dir(p), "result")
 		if e := unpack(context.Background(), p, dest, nil); e == nil {
