@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	"syscall"
 )
 
 func platformUnsafe(string, os.FileInfo) bool { return false }
@@ -18,3 +19,5 @@ func publishDirectory(from, to string) error {
 	}
 	return os.Rename(from, to)
 }
+
+func processAlive(pid int) bool { return syscall.Kill(pid, 0) != syscall.ESRCH }

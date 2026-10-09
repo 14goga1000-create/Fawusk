@@ -14,7 +14,7 @@ All fixed-width integers are little-endian. U = unsigned LEB128/uvarint (at most
 - 28:32 IEEE CRC-32 over bytes 0:28
 
 ## Data
-Starting at byte 32, stored groups are contiguous, in catalogue order. Uncompressed groups concatenate file bytes in entry order, excluding directory metadata. A file may span groups; small files share a group. All groups except the last contain exactly 8 MiB raw bytes. Each group is an independent Zstandard frame (codec=1) or raw STORE bytes (codec=0). STORE is chosen when compression would not shrink the group. Two concurrent EncodeAll tasks are bounded by an ordered pipeline; no full-archive buffer.
+Starting at byte 32, stored groups are contiguous, in catalogue order. Uncompressed groups concatenate file bytes in entry order, excluding directory metadata. A file may span groups; small files share a group. All groups except the last contain exactly 8 MiB raw bytes. Each group is an independent Zstandard frame (codec=1) or raw STORE bytes (codec=0). STORE is chosen when compression would not shrink the group. Alpha 0.4 uses two concurrent EncodeAll tasks; alpha 0.5 uses an available-CPU-aware ceiling of three with reused buffers. Tasks are bounded by an ordered pipeline; no full-archive buffer.
 
 ## Catalogue (raw before optional compression)
 - 8-byte magic `FWIX0001`
@@ -42,3 +42,5 @@ No padding/trailing bytes are allowed. The catalogue starts after the groups and
 Listing validates header/trailer/catalogue checksums, bounds and names, **not payload**. Selected-file extraction verifies stored SHA-256 before decoding each needed group, then verifies the selected file's raw SHA-256. Full extraction verifies every file/group and publishes a staged new directory only after success. No overwritten destination. Selected previews write only that file and required directories; other files in shared groups exist in memory only.
 
 A catalogue hash is not a trust signature. An attacker can generate valid hashes for malicious content. Preview policy and updated external viewers remain necessary. Limited solid groups deliberately trade some cross-group compression history for parallelism, bounded memory and efficient random access.
+
+Alpha 0.5 changes execution scheduling and buffers only, not these bytes or validation rules. Its reader prefetches a bounded set of necessary groups with per-worker reusable buffers; it never decodes outside a selected file's group range.

@@ -50,3 +50,13 @@ func nativePath(p string) string {
 	}
 	return `\\?\` + a
 }
+
+func processAlive(pid int) bool {
+	h, _, err := kernel.NewProc("OpenProcess").Call(0x100000, 0, uintptr(pid))
+	if h == 0 {
+		return err != syscall.Errno(87)
+	}
+	defer kernel.NewProc("CloseHandle").Call(h)
+	state, _, _ := kernel.NewProc("WaitForSingleObject").Call(h, 0)
+	return state != 0
+}

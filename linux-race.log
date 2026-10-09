@@ -1,3 +1,18 @@
+=== RUN   TestFourCoreBudget
+--- PASS: TestFourCoreBudget (0.00s)
+=== RUN   TestParallelGroupsCPU4
+    alpha05_test.go:55: GOMAXPROCS=4 correctness test, mixed STORE/Zstandard; not a physical four-core benchmark
+--- PASS: TestParallelGroupsCPU4 (1.05s)
+=== RUN   TestParallelGroupsCancellation
+--- PASS: TestParallelGroupsCancellation (0.35s)
+=== RUN   TestOwnedTempCleanup
+--- PASS: TestOwnedTempCleanup (0.00s)
+=== RUN   TestCleanupLeavesForeignTempAlone
+--- PASS: TestCleanupLeavesForeignTempAlone (0.00s)
+=== RUN   TestCleanupOrphanRecovery
+--- PASS: TestCleanupOrphanRecovery (0.00s)
+=== RUN   TestAlpha04SampleCompatibility
+--- PASS: TestAlpha04SampleCompatibility (0.00s)
 === RUN   TestRoundTrip
 === RUN   TestRoundTrip/zip-level-1
 === RUN   TestRoundTrip/zip-level-6
@@ -5,13 +20,13 @@
 === RUN   TestRoundTrip/faw-level-1
 === RUN   TestRoundTrip/faw-level-6
 === RUN   TestRoundTrip/faw-level-9
---- PASS: TestRoundTrip (0.36s)
+--- PASS: TestRoundTrip (0.25s)
     --- PASS: TestRoundTrip/zip-level-1 (0.02s)
     --- PASS: TestRoundTrip/zip-level-6 (0.04s)
-    --- PASS: TestRoundTrip/zip-level-9 (0.05s)
-    --- PASS: TestRoundTrip/faw-level-1 (0.01s)
+    --- PASS: TestRoundTrip/zip-level-9 (0.04s)
+    --- PASS: TestRoundTrip/faw-level-1 (0.02s)
     --- PASS: TestRoundTrip/faw-level-6 (0.02s)
-    --- PASS: TestRoundTrip/faw-level-9 (0.22s)
+    --- PASS: TestRoundTrip/faw-level-9 (0.11s)
 === RUN   TestNoOverwrite
 --- PASS: TestNoOverwrite (0.00s)
 === RUN   TestInsideSource
@@ -23,7 +38,7 @@
 === RUN   TestDuplicatesAndConflicts
 --- PASS: TestDuplicatesAndConflicts (0.00s)
 === RUN   TestLegacyFAWIntegrity
---- PASS: TestLegacyFAWIntegrity (0.02s)
+--- PASS: TestLegacyFAWIntegrity (0.01s)
 === RUN   TestCRC
 --- PASS: TestCRC (0.00s)
 === RUN   TestCancel
@@ -41,17 +56,17 @@
 === RUN   TestExtractionLimit
 --- PASS: TestExtractionLimit (0.00s)
 === RUN   TestMidOperationCancel
---- PASS: TestMidOperationCancel (0.03s)
+--- PASS: TestMidOperationCancel (0.02s)
 === RUN   TestDeclaredSizeLimit
 --- PASS: TestDeclaredSizeLimit (0.00s)
 === RUN   TestFAW2LargeMixedBlocks
---- PASS: TestFAW2LargeMixedBlocks (0.11s)
+--- PASS: TestFAW2LargeMixedBlocks (0.07s)
 === RUN   TestFAW2IntegrityAndTruncation
---- PASS: TestFAW2IntegrityAndTruncation (0.03s)
+--- PASS: TestFAW2IntegrityAndTruncation (0.02s)
 === RUN   TestFAW2MaliciousNames
---- PASS: TestFAW2MaliciousNames (0.02s)
+--- PASS: TestFAW2MaliciousNames (0.01s)
 === RUN   TestFAW2DeclaredLimitsAndChunkBounds
---- PASS: TestFAW2DeclaredLimitsAndChunkBounds (0.01s)
+--- PASS: TestFAW2DeclaredLimitsAndChunkBounds (0.00s)
 === RUN   TestFAW2ImplicitDirectories
 --- PASS: TestFAW2ImplicitDirectories (0.00s)
 === RUN   TestFAW2DecoderBounds
@@ -59,17 +74,17 @@
 === RUN   TestDeepPathRejected
 --- PASS: TestDeepPathRejected (0.00s)
 === RUN   TestFAW2ZstdOutputCap
---- PASS: TestFAW2ZstdOutputCap (0.01s)
+--- PASS: TestFAW2ZstdOutputCap (0.00s)
 === RUN   TestFAW2NoOverwrite
 --- PASS: TestFAW2NoOverwrite (0.01s)
 === RUN   TestFAW3SolidAndView
---- PASS: TestFAW3SolidAndView (0.36s)
+--- PASS: TestFAW3SolidAndView (0.41s)
 === RUN   TestArchiveViewCompatibility
---- PASS: TestArchiveViewCompatibility (0.04s)
+--- PASS: TestArchiveViewCompatibility (0.05s)
 === RUN   TestFAW3MaliciousRecords
---- PASS: TestFAW3MaliciousRecords (0.03s)
+--- PASS: TestFAW3MaliciousRecords (0.04s)
 === RUN   TestFAW3Corruption
---- PASS: TestFAW3Corruption (0.02s)
+--- PASS: TestFAW3Corruption (0.01s)
 === RUN   TestRemoteLongUnicodePaths
 --- PASS: TestRemoteLongUnicodePaths (0.01s)
 === RUN   TestFAW3HeaderQuotas
@@ -80,25 +95,25 @@
 === RUN   TestFAW3NonOverwrite
 --- PASS: TestFAW3NonOverwrite (0.00s)
 === RUN   TestIndexedMultiGroupExact
---- PASS: TestIndexedMultiGroupExact (1.19s)
+--- PASS: TestIndexedMultiGroupExact (0.92s)
 === RUN   TestPreviewAllFormats
 === RUN   TestPreviewAllFormats/faw1
 === RUN   TestPreviewAllFormats/faw2
 === RUN   TestPreviewAllFormats/faw3
 === RUN   TestPreviewAllFormats/zip
 === RUN   TestPreviewAllFormats/old3
---- PASS: TestPreviewAllFormats (0.03s)
+--- PASS: TestPreviewAllFormats (0.02s)
     --- PASS: TestPreviewAllFormats/faw1 (0.00s)
     --- PASS: TestPreviewAllFormats/faw2 (0.00s)
     --- PASS: TestPreviewAllFormats/faw3 (0.01s)
-    --- PASS: TestPreviewAllFormats/zip (0.00s)
+    --- PASS: TestPreviewAllFormats/zip (0.01s)
     --- PASS: TestPreviewAllFormats/old3 (0.00s)
 === RUN   TestPreviewPolicy
 --- PASS: TestPreviewPolicy (0.00s)
 === RUN   TestIndexedMetadataTamper
 --- PASS: TestIndexedMetadataTamper (0.01s)
 === RUN   TestIndexedCancelPipeline
---- PASS: TestIndexedCancelPipeline (0.03s)
+--- PASS: TestIndexedCancelPipeline (0.02s)
 === RUN   TestFiveGiBOptIn
     indexed_test.go:208: opt-in engineering stress test
 --- SKIP: TestFiveGiBOptIn (0.00s)
@@ -106,7 +121,7 @@
 === RUN   TestPreviewOfficePolicy/normal
 === RUN   TestPreviewOfficePolicy/macro
 === RUN   TestPreviewOfficePolicy/external
---- PASS: TestPreviewOfficePolicy (0.01s)
+--- PASS: TestPreviewOfficePolicy (0.00s)
     --- PASS: TestPreviewOfficePolicy/normal (0.00s)
     --- PASS: TestPreviewOfficePolicy/macro (0.00s)
     --- PASS: TestPreviewOfficePolicy/external (0.00s)
@@ -160,4 +175,4 @@
     --- PASS: FuzzIndexedCatalogue/seed#0 (0.00s)
     --- PASS: FuzzIndexedCatalogue/seed#1 (0.00s)
 PASS
-ok  	fawusk	3.385s
+ok  	fawusk	4.387s

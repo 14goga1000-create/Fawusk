@@ -301,7 +301,7 @@ func TestMakeReleaseDemo(t *testing.T) {
 	}
 	src := filepath.Join(root, "Пример")
 	os.MkdirAll(filepath.Join(src, "Документы"), 0700)
-	os.WriteFile(filepath.Join(src, "Заметки.txt"), []byte("\xef\xbb\xbfFawusk alpha 0.4\nОткрыт только выбранный файл.\nИсходники остаются без изменений.\n"), 0600)
+	os.WriteFile(filepath.Join(src, "Заметки.txt"), []byte("\xef\xbb\xbfFawusk alpha 0.5\nОткрыт только выбранный файл.\nИсходники остаются без изменений.\n"), 0600)
 	os.WriteFile(filepath.Join(src, "Документы", "Прочитай.txt"), []byte("Тестовая папка для навигации."), 0600)
 	out := filepath.Join(root, "Пример.faw")
 	os.Remove(out)

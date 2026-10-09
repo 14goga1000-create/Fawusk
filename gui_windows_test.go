@@ -12,17 +12,32 @@ import (
 	"unsafe"
 )
 
-func waitWindow(t *testing.T, title string) uintptr {
+func waitWindow(t *testing.T, title string, pid int) uintptr {
 	t.Helper()
+	var found uintptr
+	cb := syscall.NewCallback(func(h, l uintptr) uintptr {
+		var owner uint32
+		proc(user, "GetWindowThreadProcessId").Call(h, uintptr(unsafe.Pointer(&owner)))
+		if int(owner) != pid {
+			return 1
+		}
+		var caption [256]uint16
+		proc(user, "GetWindowTextW").Call(h, uintptr(unsafe.Pointer(&caption[0])), 256)
+		if syscall.UTF16ToString(caption[:]) == title {
+			found = h
+			return 0
+		}
+		return 1
+	})
 	deadline := time.Now().Add(12 * time.Second)
 	for time.Now().Before(deadline) {
-		h, _, _ := proc(user, "FindWindowW").Call(0, ptr(u(title)))
-		if h != 0 {
-			return h
+		proc(user, "EnumWindows").Call(cb, 0)
+		if found != 0 {
+			return found
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatal("window not found", title)
+	t.Fatal("window not found", title, "pid", pid)
 	return 0
 }
 func TestWindowsGUI(t *testing.T) {
@@ -40,7 +55,7 @@ func TestWindowsGUI(t *testing.T) {
 	}
 	defer cmd.Wait()
 	defer cmd.Process.Kill()
-	hwnd := waitWindow(t, "Fawusk "+appVersion)
+	hwnd := waitWindow(t, "Fawusk "+appVersion, cmd.Process.Pid)
 	dlgItem := proc(user, "GetDlgItem")
 	list, _, _ := dlgItem.Call(hwnd, idFiles)
 	field, _, _ := dlgItem.Call(hwnd, idPath)
@@ -76,7 +91,7 @@ func TestWindowsGUI(t *testing.T) {
 		t.Fatal("parent navigation failed", remoteText(field))
 	}
 	post.Call(hwnd, 0x111, idPack, 0)
-	dialog := waitWindow(t, "Создать архив")
+	dialog := waitWindow(t, "Создать архив", cmd.Process.Pid)
 	out := filepath.Join(root, "result.faw")
 	var edit uintptr
 	cb := syscall.NewCallback(func(h, l uintptr) uintptr {
@@ -140,7 +155,7 @@ func TestWindowsPlainFileView(t *testing.T) {
 	}
 	defer cmd.Wait()
 	defer cmd.Process.Kill()
-	hwnd := waitWindow(t, "Fawusk "+appVersion)
+	hwnd := waitWindow(t, "Fawusk "+appVersion, cmd.Process.Pid)
 	var field, list uintptr
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -166,5 +181,38 @@ func TestNativePathNormalization(t *testing.T) {
 		if got := nativePath(in); got != want {
 			t.Fatalf("%q -> %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestWindowsLockedPreviewCleanup(t *testing.T) {
+	root, e := createPreviewRoot()
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer os.RemoveAll(root)
+	p := filepath.Join(root, "held.txt")
+	os.WriteFile(p, []byte("locked preview"), 0600)
+	u, e := syscall.UTF16PtrFromString(nativePath(p))
+	if e != nil {
+		t.Fatal(e)
+	}
+	h, e := syscall.CreateFile(u, syscall.GENERIC_READ, 0, nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_NORMAL, 0)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer syscall.CloseHandle(h)
+	e = cleanupPreviewRoot(root)
+	if e == nil {
+		t.Skip("environment does not enforce Windows delete sharing")
+	}
+	if _, e = previewOwnership(root); e != nil {
+		t.Fatal("ownership lost while locked", e)
+	}
+	syscall.CloseHandle(h)
+	if e = cleanupPreviewRoot(root); e != nil {
+		t.Fatal("unlock cleanup failed", e)
+	}
+	if _, e = os.Stat(root); !os.IsNotExist(e) {
+		t.Fatal("root left behind")
 	}
 }

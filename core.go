@@ -17,7 +17,7 @@ import (
 	"unicode/utf8"
 )
 
-const appVersion = "alpha 0.4"
+const appVersion = "alpha 0.5"
 const maxFiles = 100000
 const maxTotal = uint64(20) << 30
 const maxSingle = uint64(8) << 30
@@ -483,7 +483,7 @@ func walkLegacy(ctx context.Context, path, dest string, progress report, visit e
 		progress = func(int, string) {}
 	}
 	if strings.EqualFold(filepath.Ext(path), ".rar") {
-		return errors.New("RAR в alpha 0.4 не поддерживается. Для тестирования используйте ZIP или FAW")
+		return errors.New("RAR в alpha 0.5 не поддерживается. Для тестирования используйте ZIP или FAW")
 	}
 	f, zr, e := archive(ctx, path, progress)
 	if e != nil {

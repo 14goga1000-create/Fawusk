@@ -1,33 +1,31 @@
-# Alpha 0.4 delivery checks
+# Alpha 0.5 delivery checks
 
 ## Environment
-Go 1.27.2; 2-vCPU Linux sandbox; Windows/amd64 CGO-disabled cross-build. Native GUI EXE has icon, alpha 0.4 version resource and long-path-aware/as-invoker manifest. Windows checks used Wine 10.0, UTF-8 locale and Xvfb. **No real Windows 10/11 machine was available.** EXE is unsigned. No independent security audit, antivirus certification or superiority over WinRAR/7-Zip is claimed.
+Go 1.27.2, Linux sandbox with 2 vCPU; Windows x64 CGO-disabled cross-build with icon, version resource, long-path-aware/as-invoker manifest. Native GUI EXE tested using Wine 10.0/Xvfb and UTF-8 locale. **No physical four-core machine or native Windows 10/11 system was available.** EXE is unsigned; no independent security audit or competitor ranking is claimed.
 
-## Automated checks
-- Linux: **41 top-level Test functions passed** with race detector; opt-in stress/demo helpers skipped in normal suite. Fuzz seed tests passed separately from this count.
-- Windows test binary under Wine: **43 top-level Test functions passed**, including real GUI folder navigation/modern save/FAW packing and plain-file path-only view. Source-symlink test explicitly skipped under Wine; stress/demo helpers skipped unless opted in. Linux source-symlink checks passed.
-- ZIP and FAW round trips across presets; legacy FAW 1, FAW 2, original flags=0 FAW 3 and new flags=1 FAW 3 compatibility.
-- Random binary multi-group/multi-file fixture (~38 MiB), empty files/directories and Unicode; original and restored byte equality / SHA-256 comparisons.
-- Indexed selective extraction writes exactly one selected file and required directories. An unrelated corrupted group is not decoded for a selected file in another group; full extraction rejects it and publishes no directory. Listing intentionally does not verify payload.
-- Header/catalogue/group corruption, truncation, recomputed malicious metadata hashes, unsafe paths, oversized quotas/offsets, conflicts and decoder output bounds rejected.
-- Cancellation with compression tasks in flight: no archive published, temporary files cleaned. Existing destinations unchanged.
-- Executable/script/shortcut/macro extensions, double executable extensions, bidirectional format characters and disguised PE bytes rejected for preview. OOXML macro and external relationship fixtures rejected; non-active OOXML fixture accepted.
-- Distant long Unicode output/extraction paths >260 characters, ZIP and FAW; passed under Linux and Wine. Native UNC shares, group policies and other viewers' long-path limits remain unverified.
-- Linux `go vet` and race detector passed; Windows GUI was not race-instrumented.
-- 12-second indexed parser fuzz run with valid and invalid seeds: **148,135 executions**, no crash. This is not a comprehensive fuzz campaign or audit. Raw logs included.
+Normal suites: **48 top-level Linux tests passed** with the race detector; **51 top-level Windows/Wine tests passed**, including real GUI and deletion-lock checks. Fuzz seeds are separate from those counts. Linux and Windows `go vet` checks passed.
 
-## 5 GiB stress test
-`FAWUSK_5G_BENCH=1 go test -run '^TestFiveGiBOptIn$' -v -count=1 -timeout=10m` ran a **5,368,709,120-byte sparse zero-filled file** at Fast preset through the indexed writer and full reader. Archive size: 1,067,751 bytes. Pack wall time: 11.226 seconds; complete test including extraction and SHA-256 comparison: 34.32 seconds. Original/restored SHA-256 matched.
+## Core verification
+- Linux race detector, vet and round-trip tests; Windows test binary under Wine.
+- FAW 1/2, legacy continuous FAW 3, indexed FAW 3 and ZIP compatibility. Alpha 0.4 indexed sample remains readable; alpha 0.5 does not change the format.
+- `GOMAXPROCS=4` correctness case processes a 41 MiB fixture with both STORE random-data groups and Zstandard zero-filled groups. SHA-256 after parallel compression/prefetch/decode matches the source. This tests scheduling/ownership correctness, not four physical cores.
+- Worker-budget tests: one worker for 1/2 CPUs or a single group, three for a four-core budget and many groups, three-worker maximum. No unrestricted thread count.
+- Cancellation, bounded queues and staged publication; corrupted groups/indexes/paths, quotas, no-overwrite and long Unicode destinations retained from prior tests.
+- Selected-file preview writes one content file and reads only its group range. The metadata ownership marker is outside `content/`. Unsupported executables/scripts/macros/misleading extensions remain blocked.
+- Owned Temp cleanup, active-owner protection, foreign Temp preservation, marked orphan recovery and Windows deletion-lock preservation/retry after unlock.
+- Parser fuzzing: 119,420 executions in a short 10-second run, no crash; not an exhaustive audit.
 
-This was a synthetic, exceptionally compressible Linux test on 2 vCPU, with concurrent build/test tasks and cache/sparse-file effects. The archive size is not a real-world compression ratio claim. This does not establish Windows speed, disk throughput, mixed-file performance, peak RSS, or superiority over WinRAR/7-Zip. **The 5–6 second goal was not achieved.** No native Windows or competitor performance benchmark was performed.
+## Stress observation
+A 5,368,709,120-byte **sparse zero-filled** source packed at Fast preset in **6.919 seconds**; archive size 1,067,751 bytes. Full extraction and comparison of original/restored SHA-256 passed; complete test took 24.90 seconds.
 
-## Manual GUI checks
-Actual EXE folder view and indexed archive navigation were visually inspected. Only one path/archive was shown per window, with presets and formats visible for packing and hidden inside the archive. A selected archive TXT was opened with Wine Notepad externally, using a `.txt` association configured only inside the isolated Wine prefix. Exactly one preview file was found in its randomly named Temp directory, and its bytes matched the source. UTF-8 BOM in the demonstration TXT was supplied by that fixture, not inserted by the archiver; files are not rewritten to fit a viewer's encoding.
+The machine exposed 2 vCPU; ordinary data, real storage, native Windows and physical four-core speed were not measured. Sparse zero data is exceptionally compressible and cache effects matter. This is not directly comparable to earlier runs on other sandbox workloads and is not proof of universal speed improvement or a WinRAR/7-Zip comparison. The 5–6-second goal is not achieved or guaranteed for general data. Allocation reductions/bounded buffers are implementation changes, not a measured peak-RSS promise.
 
-Temp cleanup is best-effort on next preview and window close. Locked files and crashes may leave directories. The actual native GUI screenshot is used in the release cover, not a mock application window.
+## GUI and cleanup inspection
+Real native folder/archive views with graphical pictograms, larger rows and all format names were inspected. No emoji or per-file shell thumbnail/icon handler is used. Ordinary-file path-only mode, keyboard/double-click navigation, modern save and actual FAW packing are integration-tested. GUI test windows are matched by owning PID so another Fawusk window cannot be mistaken for the test window.
+
+Manual archive preview opened the selected UTF-8-BOM TXT through Wine Notepad after configuring its association only inside the isolated Wine prefix. One content file was written, its bytes exactly matched the source, and its owned Temp directory was absent after closing the viewer and Fawusk window. Windows deletion-lock tests keep the marker while locked and clean successfully after unlock. The archiver does not force viewers to quit.
+
+Retry helper and next-start recovery are bounded/best-effort. Crash, permission problems, helper-start failure, long-held locks and PID reuse can leave directories. Old unmarked preview folders are deliberately not deleted. See TEMP_CLEANUP.md for scope and validation. This is normal deletion, not forensic erasure.
 
 ## Remaining gaps
-Real Windows 10/11, multiple DPI/monitors, installed media/Office/PDF applications and codecs, actual NTFS reparse/UNC behaviour, crash/power-loss recovery, representative performance/memory corpus, native security review and sustained malicious-input testing are needed. External viewers are not sandboxed; checks are conservative, not complete malware detection. General archive editing, encryption, RAR/7z and backup metadata preservation remain unsupported. GitHub Actions configuration is included but has not run in a published repository here.
-
-## Русский
-Проверены Linux-ядро, Windows EXE через Wine, совместимость, кириллица/длинные пути, побайтовая сохранность, выбранное извлечение, повреждения, отмена и политика просмотра. Для 5 ГиБ синтетических нулевых данных SHA-256 после распаковки совпал, но цель 5–6 секунд не достигнута. Настоящая Windows и независимый аудит ещё нужны. Быстрое открытие проверяет только каталог; полная распаковка проверяет данные всех файлов. Это альфа и не антивирус.
+Native Windows 10/11, actual four-core hardware and representative mixed-file performance/memory tests, multiple DPI/monitors, NTFS reparse/UNC policies, installed media/Office/PDF applications, sustained fuzzing and independent review remain necessary. Source symlink test is skipped under Wine; Linux test covers it. External viewers are not sandboxed; preview policy is not antivirus. GitHub Actions configuration is included but not run in a published repository here.

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -229,10 +230,10 @@ func layout() {
 	move(idEmpty, m, 235, full, 38)
 	move(idEmptyHint, m, 278, full, 44)
 	y := h - 128
-	move(idFormatLabel, m, y-30, 220, 22)
-	move(idLevelLabel, m+232, y-30, 190, 22)
-	move(idFormat, m, y, 220, 180)
-	move(idLevel, m+232, y, 190, 180)
+	move(idFormatLabel, m, y-30, 250, 22)
+	move(idLevelLabel, m+262, y-30, 155, 22)
+	move(idFormat, m, y, 250, 180)
+	move(idLevel, m+262, y, 155, 180)
 	move(idPack, w-m-148, y-8, 148, 44)
 	move(idUnpack, w-m-148, y-8, 148, 44)
 	move(idCancel, w-m-148, y-8, 148, 44)
@@ -261,11 +262,9 @@ func refresh() {
 		if currentKind == "dir" {
 			caption = filepath.Base(a.Name)
 		}
-		if a.Directory {
-			caption += "  / папка"
-		}
+
 		send.Call(controls[idFiles], 0x180, 0, ptr(u(caption)))
-		if n := len([]rune(caption))*9 + 24; n > width {
+		if n := len([]rune(caption))*9 + 52; n > width {
 			width = n
 		}
 	}
@@ -601,7 +600,7 @@ func popup(id int, opening bool) {
 			message("Регистрация FAW", "Fawusk добавлен в список «Открыть с помощью» для .faw.\n\nПриложение по умолчанию не менялось. Выберите Fawusk средствами Windows. Не перемещайте EXE после регистрации.", 0x40)
 		}
 	case 1009:
-		message("Fawusk "+appVersion, "Fawusk "+appVersion+"\n\nОдин путь на окно.\nFAW 3: индексированные solid-группы, SHA-256.\nЧтение FAW 1/2/3 и ZIP.\n\nПроект развивается как конкурент WinRAR и 7-Zip.\nЭто альфа, превосходство пока не доказано.\nRAR, 7z и шифрование не реализованы.", 0x40)
+		message("Fawusk "+appVersion, "Fawusk "+appVersion+"\n\nОдин путь на окно.\nFAW 3: индексированные solid-группы, SHA-256.\nFAW 2: отдельное сжатие файлов.\nЧтение FAW 1/2/3 и ZIP.\n\nПроект развивается как конкурент WinRAR и 7-Zip.\nЭто альфа, превосходство пока не доказано.\nRAR, 7z и шифрование не реализованы.", 0x40)
 	}
 }
 func pathProc(hwnd uintptr, msg uint32, wparam, lparam uintptr) uintptr {
@@ -614,6 +613,16 @@ func pathProc(hwnd uintptr, msg uint32, wparam, lparam uintptr) uintptr {
 }
 func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 	switch messageID {
+	case 0x2b:
+		return drawFileRow(lparam)
+	case 0x2c:
+		var a measureItem
+		kernel.NewProc("RtlMoveMemory").Call(uintptr(unsafe.Pointer(&a)), lparam, unsafe.Sizeof(a))
+		if int(a.ID) == idFiles {
+			a.Height = uint32(scaled(32))
+			kernel.NewProc("RtlMoveMemory").Call(lparam, uintptr(unsafe.Pointer(&a)), unsafe.Sizeof(a))
+			return 1
+		}
 	case 1:
 		mainWindow = hwnd
 		font, _, _ = proc(gdi, "CreateFontW").Call(uintptr(-scaled(16)), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, ptr(u("Segoe UI")))
@@ -629,7 +638,8 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		control(idPath, "EDIT", "", 0x00800000|0x10000|0x80|0x800)
 		pathOldProc, _, _ = proc(user, "SetWindowLongPtrW").Call(controls[idPath], ^uintptr(3), syscall.NewCallback(pathProc))
 		button(idUp, "Вверх")
-		control(idFiles, "LISTBOX", "", 0x00800000|0x00200000|0x00100000|0x10000|0x101)
+		control(idFiles, "LISTBOX", "", 0x00800000|0x00200000|0x00100000|0x10000|0x151)
+		send.Call(controls[idFiles], 0x1a0, 0, uintptr(scaled(32)))
 		control(idEmpty, "STATIC", "Откройте файл или папку", 1)
 		control(idEmptyHint, "STATIC", "или перетащите один путь в окно", 1)
 		label(idFormatLabel, "Формат архива")
@@ -637,7 +647,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		send.Call(controls[idFormatLabel], 0x30, smallFont, 1)
 		send.Call(controls[idLevelLabel], 0x30, smallFont, 1)
 		control(idFormat, "COMBOBOX", "", 0x3|0x10000|0x00200000)
-		for _, s := range []string{"FAW 3 · новый", "FAW 2 · блочный", "FAW 1 · совместимость", "ZIP · совместимый"} {
+		for _, s := range []string{"FAW 3 · рекомендуемый", "FAW 2 · классический", "FAW 1 · совместимость", "ZIP · совместимый"} {
 			send.Call(controls[idFormat], 0x143, 0, ptr(u(s)))
 		}
 		send.Call(controls[idFormat], 0x14e, 0, 0)
@@ -772,9 +782,8 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		proc(user, "DestroyWindow").Call(hwnd)
 		return 0
 	case 2:
-		for _, root := range previewRoots {
-			os.RemoveAll(root)
-		}
+		shutdownPreviews()
+		destroyIconBrushes()
 		for _, f := range []uintptr{font, headingFont, smallFont} {
 			proc(gdi, "DeleteObject").Call(f)
 		}
@@ -786,7 +795,12 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--cleanup-preview" {
+		retryPreviewCleanup(os.Args[2:], 2*time.Minute)
+		return
+	}
 	runtime.LockOSThread()
+	go cleanupOrphanPreviews()
 	ole.NewProc("CoInitializeEx").Call(0, 2)
 	defer ole.NewProc("CoUninitialize").Call()
 	if p := proc(user, "SetProcessDpiAwarenessContext"); p.Find() == nil {
@@ -857,12 +871,12 @@ func doPreview(name string) {
 	}
 	remaining := previewRoots[:0]
 	for _, r := range previewRoots {
-		if e := os.RemoveAll(r); e != nil {
+		if e := cleanupPreviewRoot(r); e != nil {
 			remaining = append(remaining, r)
 		}
 	}
 	previewRoots = remaining
-	root, e := os.MkdirTemp("", "Fawusk-view-*")
+	root, e := createPreviewRoot()
 	if e != nil {
 		message("Temp", e.Error(), 0x10)
 		return
@@ -877,11 +891,27 @@ func doPreview(name string) {
 	go func() {
 		p, e := extractSelected(ctx, archive, name, root, notify)
 		if e != nil {
-			os.RemoveAll(root)
+			cleanupPreviewRoot(root)
 		}
 		mu.Lock()
 		statusUpdates = append(statusUpdates, uiUpdate{done: true, err: e, path: p, preview: true})
 		mu.Unlock()
 		post.Call(mainWindow, wmUpdate, 0, 0)
 	}()
+}
+
+func shutdownPreviews() {
+	locked := []string{}
+	for _, root := range previewRoots {
+		if e := cleanupPreviewRoot(root); e != nil {
+			locked = append(locked, root)
+		}
+	}
+	if len(locked) > 0 {
+		args := append([]string{"--cleanup-preview"}, locked...)
+		cmd := exec.Command(programPath(), args...)
+		if e := cmd.Start(); e == nil {
+			cmd.Process.Release()
+		}
+	}
 }

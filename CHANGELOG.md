@@ -1,5 +1,12 @@
 # Changelog
 
+## Alpha 0.5
+- Human FAW 2 Classic label; native vector folder/archive/file pictograms, larger owner-drawn rows, no emoji.
+- Four-core-oriented capped codec budget: up to three workers plus I/O/file hashing; buffers reused in both compression and prefetch/decode pipelines.
+- Marked per-window preview Temp directories; normal-close cleanup, two-minute retry helper for locked files, next-start orphan recovery. No arbitrary Temp purge or forced viewer termination.
+- FAW 3 flags=1 format unchanged; alpha 0.4 compatibility retained.
+- Expanded parallel-group, worker-budget, cancellation, owned/foreign/orphan Temp and Windows deletion-lock tests.
+
 ## Alpha 0.4
 - Indexed FAW 3 flags=1: compact catalogue, 8 MiB solid groups, bounded two-task compression pipeline, adaptive STORE, SHA-256 per group/file.
 - Fast catalogue-only listing; selected-file extraction reads only required groups for flags=1. Legacy FAW 1/2/3 and ZIP remain readable.

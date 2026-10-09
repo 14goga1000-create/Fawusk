@@ -1,87 +1,93 @@
-# Fawusk — alpha 0.4
+# Fawusk — alpha 0.5
 
-**A minimal, local Windows archiver being developed as a competitor to WinRAR and 7-Zip.** The project is early-stage: superior speed, compression ratio and security have **not** been demonstrated. Test on copies of your files.
+**A minimal local Windows archiver being developed as a competitor to WinRAR and 7-Zip.** This is an early test release, not a proven performance or security winner. Test on copies of important files.
 
-![Fawusk alpha 0.4](docs/release-cover.png)
+![Fawusk alpha 0.5](docs/release-cover.png)
 
 ## English
 
-### What's new
-- **One open path per window.** Browse a folder or an archive; regular files show their path. Extra paths open in separate windows.
-- **Indexed FAW 3 solid groups.** Files share compression history within 8 MiB groups. Two groups can compress in parallel, memory is bounded, and incompressible groups use STORE. A compact catalogue opens without decompressing the whole archive.
-- **Selected-file viewer.** Double-click supported pictures, videos, audio or documents inside an archive. Only the selected file is written to a private, randomly named `%TEMP%\Fawusk-view-*` directory and then opened with your Windows-associated application. FAW 3 indexed archives decode only the required groups. Older archives may require decoding the entire stream, but other files are discarded, not written.
-- **Preview restrictions.** Executables, scripts, shortcuts, macro-enabled Office documents, misleading executable extensions and recognized executable signatures cannot be launched from the archive. OOXML macro/ActiveX/embedded-object/external-relationship checks are conservative; rejected files require normal extraction.
-- **Human presets:** Fast / Good / Maximum (Russian UI: «Быстрый», «Хороший», «Максимальный»). Format choices: FAW 3 / FAW 2 / FAW 1 / ZIP.
+### New in alpha 0.5
+- **Clearer format names:** FAW 3 — Recommended; FAW 2 — Classic; FAW 1 — Compatibility; ZIP — Compatible. FAW 2's technical “block” label is gone. Internally it compresses each file independently; the name change does not alter its format.
+- **Folder and file pictograms:** native Win32 vector graphics, not emoji. Folders, archives and file categories are visually distinguished without loading thumbnails or invoking per-file shell icon handlers. Rows have more breathing room and retain keyboard navigation.
+- **Four-core-oriented scheduling:** one processor budget is reserved for I/O and file hashing; up to three codec workers compress/decode solid groups. The actual worker count honours Go's available CPU budget, has a ceiling of three, and falls to one for small archives or one/two-core budgets. This is not a physical four-core benchmark or a speed guarantee.
+- **Buffer reuse:** bounded compression queues reuse raw and encoded buffers; unpacking prefetches and verifies groups in parallel and reuses each worker's input/output buffers. No full-archive RAM buffer. Extra workers cost memory, so the pipeline is capped.
+- **Owned Temp cleanup:** normal close removes Fawusk's preview files. If a viewer holds a Windows deletion lock, a windowless helper retries for up to two minutes after the owning process exits. A later Fawusk start attempts recovery of remaining marked orphan directories. Active windows' directories and unrelated Temp data are left alone.
 
-### Download and use
-Windows 10/11 **x64**. Download `Fawusk-alpha-0.4.exe` from Releases, put it in a folder and run it. No installer, .NET, Mono or administrator rights are required. The EXE is unsigned; Windows may show a reputation warning. Check the published SHA-256 and use files from the repository owner. Do not disable antivirus globally.
+### Use
+Windows 10/11 x64. Download `Fawusk-alpha-0.5.exe` from Releases and run it. No installer, .NET/Mono or administrator privileges. The EXE is unsigned; Windows may show a reputation warning. Verify the published SHA-256 and download origin; do not globally disable antivirus.
 
-Open one file/folder/archive using **Открыть…** or drag it into the window. Select the format and preset, then **Упаковать**. To extract, open an archive and choose **Распаковать…**. Extraction creates a **new** directory; existing files and source files are not overwritten. Double-click folders to navigate and supported archive files to preview. Unsupported/blocked files must be fully extracted and checked before any external launch.
+Open a single file, folder or archive with **Открыть…** or drag/drop. Additional paths open separate windows. Choose the format and **Быстрый / Хороший / Максимальный**, then **Упаковать**. Open an archive and select **Распаковать…** to create a new directory. Existing files and inputs are not overwritten.
 
-Supported preview extensions: JPG/JPEG, PNG, GIF, BMP, WebP, TIFF, MP4/M4V/MOV, MKV/WebM, AVI, MP3/WAV/FLAC/OGG, TXT/MD/CSV, PDF and restricted DOCX/XLSX/PPTX. A suitable Windows application must be installed. Not every codec/document will be recognized by that application.
+Double-click folders to navigate. A normal file is opened using your Windows association. A permitted archive file is extracted to a randomly named `%TEMP%\Fawusk-preview-*` directory, checked and opened with your associated application. Only the selected file and parent directories are written, plus a small ownership marker outside the content directory. Indexed FAW 3 reads only needed groups; older solid archives may decode the entire stream but discard unrelated file bytes.
 
-### Compatibility and limitations
-- Reads legacy FAW 1, FAW 2, original alpha 0.3 FAW 3, indexed alpha 0.4 FAW 3, and ZIP. Writes FAW 1/2/3 and ZIP. **RAR and 7z are not implemented**; no RAR-writing promise or renamed ZIP masquerading as RAR.
-- **New indexed FAW 3 files require Fawusk alpha 0.4 or later. Alpha 0.3 cannot read them.** Choose FAW 1/2 or ZIP when sending files to older versions. FAW 1 is a legacy ZIP-based container, not labelled unstable without evidence.
-- SHA-256 and CRC detect accidental corruption; they do **not** establish authorship or guarantee that files are safe. Fast catalogue listing validates metadata, **not all payload**. Data is checked when its groups are read; full extraction checks every file.
-- Preview is **not an antivirus or a sandbox**. PDF, media and Office renderers may have vulnerabilities; use updated trusted applications. Passwords/encryption, ACLs/alternate data streams, hard-link identity, device files and symbolic/reparse links are unsupported. File bytes, relative names, empty directories and modification timestamps are the supported data model; this is not a complete system-backup tool.
-- Limits: 100,000 paths, 8 GiB per file, 20 GiB total uncompressed data, 16 MiB names and 32 MiB indexed catalogue. Preview: 1 GiB per selected file. The bounded worker pipeline avoids loading the full archive into RAM, but «Maximum» is slower and uses more memory.
-- Temporary preview files remain until the next preview or window close, so viewers can access them. Both actions attempt cleanup. A locked file or a crash can leave temporary files; close viewers and delete the corresponding `Fawusk-view-*` directory if needed.
-- The archiver itself has no network features, telemetry or update client. An external viewer can have its own network behaviour.
+### Preview and cleanup safety
+Preview supports common JPG/PNG/GIF/BMP/WebP/TIFF pictures, MP4/MOV/MKV/WebM/AVI videos, MP3/WAV/FLAC/OGG audio, TXT/MD/CSV/PDF and restricted DOCX/XLSX/PPTX. An updated suitable external viewer must be installed. Preview is **not an antivirus or a sandbox**: external applications can have vulnerabilities and their own network behaviour.
 
-### Performance goal, not a guarantee
-The requested **5 GB in 5–6 seconds** remains a development target, **not achieved or guaranteed in this release**. Compression speed and size depend on data, preset, CPU, storage and cache. JPEG/video and already compressed archives may barely shrink. Independent 8 MiB solid groups improve random access and parallelism, but can compress less well than an unrestricted single solid stream. No WinRAR/7-Zip benchmark has been performed.
+Executable/script/shortcut and macro-document extensions, misleading names such as `virus.exe.txt`, known executable signatures and active OOXML macro/ActiveX/embedded-object/external-link fixtures are blocked for archive preview. Unsupported files require full ordinary extraction and your own safety assessment; extraction itself never launches them.
 
-An engineering test processed a **5 GiB sparse zero-filled file** in about **11.23 seconds** on a 2-vCPU Linux sandbox with other build/test work present; a complete extraction and original/restored SHA-256 comparison passed. This synthetic case is not representative of Windows, mixed files, real disks or cold-cache performance. See [testing notes](docs/TESTING.md).
+Fawusk never purges the whole Temp directory or forcibly terminates your viewer. Windows can prevent deleting locked files; crashes, power loss, permissions or an unavailable cleanup helper can leave data behind. Ownership markers are checked before cleanup. Next-preview cleanup, close cleanup, retries and next-start recovery are best-effort. **Instant deletion under every circumstance cannot be guaranteed.** Unmarked `Fawusk-view-*` directories from older releases are not automatically deleted; remove your old leftover directories manually after closing viewers.
 
-### Build and test
-Requires Go **1.25+** (release built with Go 1.27.2), internet for initial module/resource-tool downloads.
+### Format compatibility and limits
+Alpha 0.5 keeps the indexed **FAW 3 flags=1 format from alpha 0.4**; archives remain readable by 0.4. It also reads FAW 1/2, original alpha 0.3 FAW 3 flags=0 and ZIP. New indexed FAW 3 requires 0.4 or newer; 0.3 cannot read it. Writes FAW 1/2/3 and ZIP. RAR, 7z, encryption and archive editing are not implemented.
+
+8 MiB solid groups preserve compression history across files within each group. Incompressible groups use STORE. Group/file SHA-256 detects corruption, not malicious authorship. Catalogue-only listing checks metadata, not all payload; data is verified when groups are read and full extraction checks every file. Limited groups trade some cross-group compression for parallelism and random access.
+
+Limits: 100,000 paths, 8 GiB/file, 20 GiB uncompressed total, 16 MiB names, 32 MiB index, 1 GiB/preview. Symbolic/reparse links, device files, ACLs, alternate streams and hard-link identity are unsupported; this is not a full system-backup tool. The archiver itself has no telemetry, network client or automatic updater.
+
+### Performance and verification
+A synthetic **5 GiB sparse zero-filled file** packed in **6.919 seconds** in a **2-vCPU Linux sandbox**; full extraction and original/restored SHA-256 comparison passed. This is not ordinary data, native Windows, cold-cache disk throughput or a WinRAR/7-Zip comparison. The broad 5 GB/5–6 second goal is not reached or guaranteed. Physical four-core performance still needs testing. Correctness tests also exercise a `GOMAXPROCS=4` budget, not four physical cores.
+
+See [testing notes](docs/TESTING.md) and included raw logs. Native Windows 10/11 testing and an independent security/performance audit remain needed.
+
+### Build
+Go 1.25+; this release used Go 1.27.2. Initial module/resource-tool downloads require internet.
 
 ```sh
 go test ./...
-go test -race ./...    # supported host with a C toolchain
+go test -race ./...   # supported host with C toolchain
 go vet ./...
-sh build.sh           # Linux cross-build to dist/Fawusk-alpha-0.4.exe
+sh build.sh          # Windows x64 cross-build
 ```
 
 Windows PowerShell:
 ```powershell
 .\build.ps1
-$env:FAWUSK_GUI_EXE = (Resolve-Path .\dist\Fawusk-alpha-0.4.exe).Path
+$env:FAWUSK_GUI_EXE = (Resolve-Path .\dist\Fawusk-alpha-0.5.exe).Path
 go test -v ./...
 ```
 
-Opt-in engineering stress test (needs approximately 6 GiB disk space and time for hashing):
+Optional engineering stress test (needs approximately 6 GiB free disk):
 ```sh
 FAWUSK_5G_BENCH=1 go test -run '^TestFiveGiBOptIn$' -v -count=1 -timeout=10m
 ```
 
-[Indexed format specification](docs/FAW_V3_INDEXED.md) · [Legacy FAW 3](docs/FAW_FORMAT.md) · [FAW 2](docs/FAW_V2.md) · [FAW 1](docs/FAW_V1.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+[Indexed FAW 3](docs/FAW_V3_INDEXED.md) · [Legacy FAW 3](docs/FAW_FORMAT.md) · [FAW 2](docs/FAW_V2.md) · [FAW 1](docs/FAW_V1.md) · [Third-party licences](THIRD_PARTY_NOTICES.md)
 
 ---
 
 ## Русский
 
-**Fawusk — минималистичный локальный архиватор для Windows, который мы развиваем как конкурента WinRAR и 7-Zip.** Пока это ранняя альфа: превосходство по скорости, сжатию и безопасности не доказано. Проверяйте программу на копиях файлов.
+**Fawusk — минималистичный локальный архиватор для Windows, который мы развиваем как конкурента WinRAR и 7-Zip.** Превосходство пока не доказано; проверяйте альфу на копиях важных файлов.
 
-### Что изменилось в alpha 0.4
-- **Один открытый путь на окно:** папка, файл или архив. Папки и архивы показывают содержимое; обычный файл — свой путь. Дополнительные пути открываются отдельными окнами.
-- **Индексированный FAW 3:** solid-группы по 8 МиБ, два параллельных задания, компактный каталог и хранение несжимаемых групп без дополнительного сжатия. Открытие нового архива не требует декодировать все данные.
-- **Просмотр выбранного файла:** двойной клик извлекает только выбранное фото, видео, аудио или документ в отдельную случайную папку Temp и открывает его приложением Windows. Новый FAW 3 читает нужные группы; старые solid-архивы могут требовать декодирования всего потока, но остальные файлы на диск не записываются.
-- **Ограничения просмотра:** запрещены приложения, скрипты, ярлыки, макросодержащие документы и маскировка вроде `virus.exe.txt`. Проверяются известные сигнатуры исполняемых файлов и активное содержимое OOXML. Не прошедший проверку файл можно только обычным образом распаковать, затем самостоятельно проверить.
-- **Понятные настройки:** «Быстрый», «Хороший», «Максимальный»; форматы FAW 3, FAW 2, FAW 1 и ZIP. Настройки вынесены прямо в окно, без лишнего подменю.
+### Что нового в alpha 0.5
+- **FAW 2 — «Классический»** вместо непонятного «Блочный». FAW 3 обозначен как рекомендуемый. Алгоритмы FAW 2 не изменены: файлы сжимаются независимо.
+- **Графические иконки папок, архивов и файлов:** без эмоджи, миниатюр и загрузки оболочечных обработчиков. Более просторные строки, клавиатурная навигация сохранена.
+- **Расчёт под четыре ядра:** до трёх рабочих потоков кодека плюс ресурс для чтения, записи и проверки. На малых архивах и меньшем CPU-бюджете число работников уменьшается. Учтены ограничения среды, число потоков не растёт бесконечно.
+- **Меньше повторных выделений памяти:** повторно используются буферы сжатия и распаковки; группы читаются и проверяются заранее в ограниченном конвейере. Весь архив в память не загружается.
+- **Очистка Temp:** при обычном закрытии удаляются свои временные файлы просмотра. Для заблокированных файлов отдельный помощник повторяет попытки до двух минут после завершения основного процесса; оставшиеся помеченные папки подбираются при следующем запуске.
 
-### Запуск
-Windows 10/11 x64. Скачайте `Fawusk-alpha-0.4.exe` из Releases и запустите: установка, .NET/Mono и права администратора не требуются. EXE не подписан, поэтому Windows может предупредить о репутации файла. Сверяйте SHA-256 и источник загрузки; не отключайте антивирус целиком.
+### Запуск и безопасность
+Windows 10/11 x64. Запустите `Fawusk-alpha-0.5.exe`: установка, .NET/Mono и администратор не нужны. EXE не подписан — сверяйте SHA-256 и источник.
 
-«Открыть…» → выберите путь → формат и сжатие → «Упаковать». Для распаковки откройте архив и нажмите «Распаковать…»: будет создана новая папка. Исходные файлы и существующие результаты не перезаписываются. Двойной клик по папке — переход, по разрешённому файлу в архиве — просмотр внешним приложением.
+Один открытый путь на окно. «Открыть…» → формат и сжатие → «Упаковать». Для извлечения откройте архив и нажмите «Распаковать…»: создаётся новая папка, перезаписи нет. Двойной клик по разрешённому файлу в архиве извлекает только его в отдельную Temp-папку и открывает установленным приложением Windows.
 
-### Важно
-- Читаются FAW 1/2, старый FAW 3 из alpha 0.3, новый FAW 3 из alpha 0.4 и ZIP. **Новый FAW 3 не открывается в alpha 0.3**; для обмена со старыми версиями выбирайте FAW 1/2 или ZIP. RAR, 7z и шифрование пока не реализованы.
-- Просмотр — **не антивирус и не песочница**. Поддерживаемые типы перечислены в английской секции выше. Для них нужны установленные и обновлённые приложения Windows; они могут иметь собственные уязвимости и сетевые функции.
-- SHA-256/CRC обнаруживают повреждение, но не доказывают безопасность или авторство. Быстрое открытие проверяет каталог; данные проверяются при чтении соответствующих групп и полной распаковке.
-- Лимиты: 100 000 путей, 8 ГиБ на файл, 20 ГиБ на архив; просмотр — 1 ГиБ на выбранный файл. Символические/reparse-ссылки, специальные файлы, ACL и альтернативные потоки не сохраняются. Это не полноценный инструмент резервного копирования системы.
-- Временные файлы хранятся до следующего просмотра или закрытия окна. Очистка выполняется по возможности; после сбоя или блокировки внешним приложением папка `Fawusk-view-*` может остаться в Temp.
-- **5 ГБ за 5–6 секунд — пока цель, а не результат релиза.** Тест синтетического файла из нулей размером 5 ГиБ в Linux-среде с 2 vCPU занял около 11,23 с на упаковку; после распаковки SHA-256 совпал. На этом ПК параллельно шли сборочные/тестовые задачи. Это не результат для Windows или обычных данных и не сравнение с WinRAR/7-Zip. Степень сжатия зависит от содержимого; ограниченные solid-группы иногда уступают одному непрерывному потоку.
+Приложения, скрипты, ярлыки, маскировка расширений и макросодержащие документы запрещены для просмотра из архива. Просмотрщик **не является антивирусом или песочницей**; внешние приложения должны быть доверенными и обновлёнными. Поддерживаемые расширения и ограничения перечислены выше.
 
-Исходники — под MIT; сторонние лицензии приложены. Сборка и проверки описаны выше. Перед публикацией собственного релиза дополнительно проверьте EXE на реальной Windows 10/11.
+**Чужие файлы в Temp не удаляются.** Мгновенная очистка при любых условиях невозможна: Windows может заблокировать файл, а процесс — аварийно завершиться. Просмотрщик не закрывается принудительно. Предусмотрены повторные попытки и восстановительная очистка. Старые непомеченные папки `Fawusk-view-*` из прежних версий автоматически не удаляются.
+
+### Совместимость и проверка
+Формат нового FAW 3 не менялся: alpha 0.4 и 0.5 совместимы. Читаются старые FAW 1/2/3 и ZIP; запись — FAW 1/2/3 и ZIP. Alpha 0.3 не читает индексированный FAW 3. RAR, 7z, шифрование и редактирование архивов пока отсутствуют.
+
+Для 5 ГиБ синтетических нулевых данных в Linux на 2 vCPU упаковка заняла **6,919 с**, а SHA-256 после распаковки совпал. Это не скорость на обычных файлах, не результат настоящей Windows и не сравнение с конкурентами. Цель 5–6 секунд на любых данных не достигнута. Реальный четырёхъядерный ПК ещё нужно проверить; тест `GOMAXPROCS=4` проверяет корректность, а не физическую скорость четырёх ядер.
+
+Ограничения: 8 ГиБ/файл, 20 ГиБ/архив, 100 000 путей, просмотр до 1 ГиБ/файл. Быстрое открытие проверяет каталог; данные проверяются при извлечении. ACL, альтернативные потоки, специальные файлы и ссылки не сохраняются. Исходники под MIT, сторонние лицензии приложены. Сборка и проверки — в английской секции и docs/TESTING.md.

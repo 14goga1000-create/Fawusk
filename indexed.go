@@ -1,6 +1,6 @@
 package main
 
-// FAW 3, flags=1: independently compressed solid groups and a bounded authenticated
+// FAW 3, flags=1: independently compressed solid groups and a bounded integrity-checked
 // catalogue. SHA-256 detects corruption, not malicious authors or viruses.
 import (
 	"bytes"
@@ -70,7 +70,8 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 	if level == 9 {
 		quality = zstd.SpeedBestCompression
 	}
-	enc, e := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(2), zstd.WithEncoderLevel(quality), zstd.WithWindowSize(faw3Window), zstd.WithLowerEncoderMem(true))
+	workers := archiveWorkers(uint64(total))
+	enc, e := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(workers), zstd.WithEncoderLevel(quality), zstd.WithWindowSize(faw3Window), zstd.WithLowerEncoderMem(true))
 	if e != nil {
 		return e
 	}
@@ -90,11 +91,14 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 	raw := make([]byte, 0, faw3Window)
 
 	type result struct {
-		raw, data []byte
-		codec     byte
+		raw, data, encoded []byte
+		hash               [32]byte
+		codec              byte
 	}
-	pending := []chan result{}
-	pool := make(chan []byte, 2)
+	type buffers struct{ raw, encoded []byte }
+	pending := make([]chan result, 0, workers)
+	pool := make(chan buffers, workers)
+	var scratch []byte
 	offset := uint64(32)
 	cursor := uint64(0)
 	names := 0
@@ -104,14 +108,14 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 		r := <-ch
 		defer func() {
 			select {
-			case pool <- r.raw[:0]:
+			case pool <- buffers{r.raw[:0], r.encoded[:0]}:
 			default:
 			}
 		}()
 		if e := check(ctx); e != nil {
 			return e
 		}
-		g := groupDesc{Offset: offset, Stored: uint64(len(r.data)), Raw: uint64(len(r.raw)), Codec: r.codec, Hash: sha256.Sum256(r.data)}
+		g := groupDesc{Offset: offset, Stored: uint64(len(r.data)), Raw: uint64(len(r.raw)), Codec: r.codec, Hash: r.hash}
 		if _, e := f.Write(r.data); e != nil {
 			return e
 		}
@@ -131,27 +135,30 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 		if e := check(ctx); e != nil {
 			return e
 		}
-		if len(pending) == 2 {
+		if len(pending) == workers {
 			if e := consume(); e != nil {
 				return e
 			}
 		}
-		block := raw
+		block, encoded := raw, scratch
 		ch := make(chan result, 1)
 		pending = append(pending, ch)
 		go func() {
-			data := enc.EncodeAll(block, nil)
+			encoded = enc.EncodeAll(block, encoded[:0])
+			data := encoded
 			codec := byte(1)
 			if len(data) >= len(block) {
 				data = block
 				codec = 0
 			}
-			ch <- result{raw: block, data: data, codec: codec}
+			ch <- result{raw: block, data: data, encoded: encoded, hash: sha256.Sum256(data), codec: codec}
 		}()
 		select {
-		case raw = <-pool:
+		case b := <-pool:
+			raw, scratch = b.raw, b.encoded
 		default:
 			raw = make([]byte, 0, faw3Window)
+			scratch = nil
 		}
 		return nil
 	}
@@ -479,11 +486,19 @@ func walkIndexed(ctx context.Context, p, dest string, progress report, visit ent
 		return e
 	}
 	defer f.Close()
-	dec, e := newGroupDecoder()
-	if e != nil {
-		return e
+
+	first, last := 0, len(cat.Groups)
+	if sink.selected != "" {
+		first, last = 0, 0
+		for _, a := range cat.Entries {
+			if a.Name == sink.selected && !a.Directory && a.Size > 0 {
+				first = int(a.Start / faw3Window)
+				last = int((a.Start + a.Size + faw3Window - 1) / faw3Window)
+			}
+		}
 	}
-	defer dec.Close()
+	reader := newGroupReader(ctx, f, cat.Groups, first, last)
+	defer reader.close()
 	cached := -1
 	var raw []byte
 	var done uint64
@@ -517,26 +532,13 @@ func walkIndexed(ctx context.Context, p, dest string, progress report, visit ent
 				gi := int(cursor / faw3Window)
 				g := cat.Groups[gi]
 				if cached != gi {
-					data := make([]byte, int(g.Stored))
-					if _, e = f.ReadAt(data, int64(g.Offset)); e != nil {
+					raw, e = reader.load(gi)
+					if e != nil {
 						return e
-					}
-					if sha256.Sum256(data) != g.Hash {
-						return errors.New("Повреждены данные группы FAW")
-					}
-					if g.Codec == 0 {
-						raw = data
-					} else {
-						raw, e = dec.DecodeAll(data, make([]byte, 0, int(g.Raw)))
-						if e != nil {
-							return e
-						}
-					}
-					if uint64(len(raw)) != g.Raw {
-						return errors.New("Неверный размер группы")
 					}
 					cached = gi
 				}
+
 				offset := cursor % faw3Window
 				n := g.Raw - offset
 				if n > left {

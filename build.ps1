@@ -7,10 +7,10 @@ try {
     $oldOS = $env:GOOS; $oldArch = $env:GOARCH; $oldCGO = $env:CGO_ENABLED
     try {
         $env:GOOS = 'windows'; $env:GOARCH = 'amd64'; $env:CGO_ENABLED = '0'
-        go build -trimpath -ldflags='-s -w -H=windowsgui' -o dist/Fawusk-alpha-0.4.exe .
+        go build -trimpath -ldflags='-s -w -H=windowsgui' -o dist/Fawusk-alpha-0.5.exe .
         if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
     } finally { $env:GOOS = $oldOS; $env:GOARCH = $oldArch; $env:CGO_ENABLED = $oldCGO }
-    $hash = (Get-FileHash dist/Fawusk-alpha-0.4.exe -Algorithm SHA256).Hash.ToLowerInvariant()
-    "$hash  Fawusk-alpha-0.4.exe" | Set-Content -Encoding ascii dist/SHA256SUMS.txt
-    Write-Host 'Built dist/Fawusk-alpha-0.4.exe (unsigned alpha).'
+    $hash = (Get-FileHash dist/Fawusk-alpha-0.5.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$hash  Fawusk-alpha-0.5.exe" | Set-Content -Encoding ascii dist/SHA256SUMS.txt
+    Write-Host 'Built dist/Fawusk-alpha-0.5.exe (unsigned alpha).'
 } finally { Pop-Location }
