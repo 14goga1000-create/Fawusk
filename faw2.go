@@ -195,6 +195,9 @@ func packFAW2(ctx context.Context, inputs []string, output string, level int, pr
 	if e = check(ctx); e != nil {
 		return e
 	}
+	if e = beforeArchivePublish(ctx, tempName); e != nil {
+		return e
+	}
 	if e = publishFile(tempName, output); e != nil {
 		return e
 	}
@@ -237,7 +240,7 @@ func walkFAW2(ctx context.Context, archivePath, dest string, progress report, vi
 	if expectedTotal > maxTotal || expectedCount > maxFiles {
 		return errors.New("Превышен безопасный лимит FAW")
 	}
-	sink, e := newExtractionSink(dest)
+	sink, e := newExtractionSink(ctx, dest)
 	if e != nil {
 		return e
 	}

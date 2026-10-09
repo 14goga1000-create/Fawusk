@@ -174,6 +174,9 @@ func packFAW3Legacy(ctx context.Context, inputs []string, output string, level i
 	if e = check(ctx); e != nil {
 		return e
 	}
+	if e = beforeArchivePublish(ctx, temp); e != nil {
+		return e
+	}
 	if e = publishFile(temp, output); e != nil {
 		return e
 	}
@@ -223,7 +226,7 @@ func walkFAW3(ctx context.Context, p, dest string, progress report, visit entryV
 	defer decoder.Close()
 	limit := int64(totalExpected) + fawMaxNames + int64(countExpected)*35 + 1
 	reader := bufio.NewReaderSize(io.LimitReader(decoder, limit), 128*1024)
-	sink, e := newExtractionSink(dest)
+	sink, e := newExtractionSink(ctx, dest)
 	if e != nil {
 		return e
 	}

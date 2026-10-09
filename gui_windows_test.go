@@ -87,6 +87,15 @@ func TestWindowsGUI(t *testing.T) {
 	if !strings.HasSuffix(remoteText(field), "subfolder") {
 		t.Fatal("folder navigation failed", remoteText(field))
 	}
+	upButton, _, _ := dlgItem.Call(hwnd, idUp)
+	deadline = time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		ready, _, _ := proc(user, "IsWindowEnabled").Call(upButton)
+		if ready != 0 {
+			break
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
 	post.Call(hwnd, 0x111, idUp, 0)
 	deadline = time.Now().Add(4 * time.Second)
 	for time.Now().Before(deadline) && remoteText(field) != src {

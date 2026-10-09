@@ -17,7 +17,7 @@ import (
 	"unicode/utf8"
 )
 
-const appVersion = "alpha 0.6"
+const appVersion = "alpha 0.7"
 const maxFiles = 100000
 const maxTotal = uint64(20) << 30
 const maxSingle = uint64(8) << 30
@@ -321,6 +321,9 @@ func packLegacy(ctx context.Context, inputs []string, output, format string, lev
 	if e = tmp.Close(); e != nil {
 		return e
 	}
+	if e = beforeArchivePublish(ctx, tmpName); e != nil {
+		return e
+	}
 	if e = publishFile(tmpName, output); e != nil {
 		return e
 	}
@@ -484,7 +487,7 @@ func walkLegacy(ctx context.Context, path, dest string, progress report, visit e
 		progress = func(int, string) {}
 	}
 	if strings.EqualFold(filepath.Ext(path), ".rar") {
-		return errors.New("RAR в alpha 0.6 не поддерживается. Для тестирования используйте ZIP или FAW")
+		return errors.New("RAR в alpha 0.7 не поддерживается. Для тестирования используйте ZIP или FAW")
 	}
 	f, zr, e := archive(ctx, path, progress)
 	if e != nil {
@@ -510,7 +513,7 @@ func walkLegacy(ctx context.Context, path, dest string, progress report, visit e
 			return errors.New("Файл отсутствует в ZIP")
 		}
 	}
-	sink, e := newExtractionSink(dest)
+	sink, e := newExtractionSink(ctx, dest)
 	if e != nil {
 		return e
 	}

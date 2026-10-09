@@ -1,0 +1,112 @@
+{
+  "engine": "CustomAV",
+  "version": "0.5 / Fawusk Go port 0.7",
+  "verdict": "NO POSITIVE MALWARE INDICATORS",
+  "archive_sha256": "24a69cd1b34929bb1636e21eb9b887ba5590b2b2bb2777204008f4272f3e7340",
+  "archive_size": 7585,
+  "container_format": "faw",
+  "format_version": 3,
+  "scan_scope": "all_entries",
+  "scan_complete": true,
+  "score": 0,
+  "report_truncated": false,
+  "checked_at": "2026-10-09T05:28:43Z",
+  "complete": true,
+  "malware_signal_score": 0,
+  "test_signal_score": 0,
+  "review_signal_score": 0,
+  "findings": [],
+  "files": [
+    {
+      "path": "Пример/Аудио.wav",
+      "size": 44178,
+      "sha256": "fb101ed3a2880a85847eb4314ace9da6cb2bab2b73c419aec5f102b0d6cf1f37",
+      "format": "data",
+      "state": "clear",
+      "entry": "Пример/Аудио.wav",
+      "container_format": "faw",
+      "scan_complete": true,
+      "verdict": "no_positive_indicators",
+      "complete": true
+    },
+    {
+      "path": "Пример/Видео.mp4",
+      "size": 1923,
+      "sha256": "2b563ae906346aefd05813bbc0a4ec265b1c12872277e56b0b9575d0b425f17b",
+      "format": "data",
+      "state": "clear",
+      "entry": "Пример/Видео.mp4",
+      "container_format": "faw",
+      "scan_complete": true,
+      "verdict": "no_positive_indicators",
+      "complete": true
+    },
+    {
+      "path": "Пример/Документ.pdf",
+      "size": 1378,
+      "sha256": "48f5d48bd4efd522eb5774001ab310a34f66078ab194e8137270c2dd288feea5",
+      "format": "pdf",
+      "state": "clear",
+      "entry": "Пример/Документ.pdf",
+      "container_format": "faw",
+      "scan_complete": true,
+      "verdict": "no_positive_indicators",
+      "complete": true
+    },
+    {
+      "path": "Пример/Документы/readme.txt",
+      "size": 25,
+      "sha256": "2947be4633708d6c8aee1f798298e584c804d6a11c8158915cbf2f96980a7a11",
+      "format": "text",
+      "state": "clear",
+      "entry": "Пример/Документы/readme.txt",
+      "container_format": "faw",
+      "scan_complete": true,
+      "verdict": "no_positive_indicators",
+      "complete": true
+    },
+    {
+      "path": "Пример/Заметки.txt",
+      "size": 78,
+      "sha256": "1636ba5e270e871279bb98c6de1fc8096db7cd5cbf315eb9e24b709a63a32391",
+      "format": "text",
+      "state": "clear",
+      "entry": "Пример/Заметки.txt",
+      "container_format": "faw",
+      "scan_complete": true,
+      "verdict": "no_positive_indicators",
+      "complete": true
+    },
+    {
+      "path": "Пример/Таблица.csv",
+      "size": 21,
+      "sha256": "b01f2e953ff17a79bee8b974d43ed66d6c0221c6d0926466077ad8469ba3f8d7",
+      "format": "text",
+      "state": "clear",
+      "entry": "Пример/Таблица.csv",
+      "container_format": "faw",
+      "scan_complete": true,
+      "verdict": "no_positive_indicators",
+      "complete": true
+    },
+    {
+      "path": "Пример/Фото.png",
+      "size": 640,
+      "sha256": "1db915587fb6899d64f2b97616912a201a78edc430abce30cfdbb2d46631744f",
+      "format": "data",
+      "state": "clear",
+      "entry": "Пример/Фото.png",
+      "container_format": "faw",
+      "scan_complete": true,
+      "verdict": "no_positive_indicators",
+      "complete": true
+    }
+  ],
+  "limitations": [
+    "Static rules only; targets are never executed. Unknown threats can evade detection; heuristic false positives are possible.",
+    "Native adapted port, not the Python reference runtime. PE/JAR/PDF/script/name rules and signature layer are bounded.",
+    "16 MiB analysis sample per file; larger files are hashed fully but marked incomplete. Nested FAW/ZIP up to depth 3 and 1 GiB decoded total; nested RAR/7z/other containers not decoded.",
+    "No cloud, sandbox, commercial reputation or signature update service. Default database contains EICAR only.",
+    "Entropy/packer scoring and Minecraft manifest/allowlist reputation from the reference are not ported."
+  ]
+}

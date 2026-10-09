@@ -1,0 +1,3 @@
+Windows EXE through Wine.
+Ordinary FAW: completed all-entry JSON report, 7 files.
+Damaged FAW: INCOMPLETE SCAN / MANUAL REVIEW; scan_complete=false; exit 3.

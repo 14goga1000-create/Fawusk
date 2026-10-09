@@ -1,0 +1,36 @@
+{
+  "engine": "CustomAV",
+  "version": "0.5 / Fawusk Go port 0.7",
+  "verdict": "INCOMPLETE SCAN / MANUAL REVIEW",
+  "archive_sha256": "b79e57c6e660afb767a7e26fab6da08f8556463a17123961cfd7606aedb58df1",
+  "archive_size": 7585,
+  "container_format": "faw",
+  "format_version": 3,
+  "scan_scope": "all_entries",
+  "scan_complete": false,
+  "score": 0,
+  "report_truncated": false,
+  "checked_at": "2026-10-09T05:28:43Z",
+  "complete": false,
+  "malware_signal_score": 0,
+  "test_signal_score": 0,
+  "review_signal_score": 0,
+  "findings": [
+    {
+      "severity": "medium",
+      "rule": "ARCHIVE_SCAN_ERROR",
+      "path": "[archive]",
+      "detail": "Повреждён каталог FAW 3",
+      "category": "review",
+      "points": 0
+    }
+  ],
+  "files": [],
+  "limitations": [
+    "Static rules only; targets are never executed. Unknown threats can evade detection; heuristic false positives are possible.",
+    "Native adapted port, not the Python reference runtime. PE/JAR/PDF/script/name rules and signature layer are bounded.",
+    "16 MiB analysis sample per file; larger files are hashed fully but marked incomplete. Nested FAW/ZIP up to depth 3 and 1 GiB decoded total; nested RAR/7z/other containers not decoded.",
+    "No cloud, sandbox, commercial reputation or signature update service. Default database contains EICAR only.",
+    "Entropy/packer scoring and Minecraft manifest/allowlist reputation from the reference are not ported."
+  ]
+}

@@ -40,3 +40,7 @@ Resource generation uses go-winres v0.3.3 / winres v0.2.1 at build time. Those t
 The executable includes `github.com/klauspost/compress v1.20.1` (BSD-3-Clause). Its full license is in [docs/licenses/klauspost-compress.txt](docs/licenses/klauspost-compress.txt). Zstandard is an existing compression algorithm; it is not claimed as an invention of this project.
 
 The linked Zstandard implementation also includes xxhash; see [its license](docs/licenses/xxhash.txt).
+
+
+## User-supplied CustomAV integration reference
+The original CustomAV 0.5 package and mandatory instruction are retained in reference/customav. No upstream licence file was supplied. That reference is not relicensed by Fawusk's MIT file; the publisher must verify their rights to redistribute it and its adapted rules. The runtime uses an adapted native Go port, with limitations documented in docs/CUSTOMAV.md, not the Python reference/external tools.

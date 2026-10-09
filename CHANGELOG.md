@@ -1,3 +1,10 @@
+# Alpha 0.7
+- CustomAV 0.5 adapted native port; mandatory reference instruction retained.
+- Read-only FawReader adapter and bounded nested FAW/ZIP scanning; whole-archive coverage fields.
+- Fail-closed publication/preview/extraction gates, explanatory JSON report and standalone scanner mode.
+- Dedicated media/document/code/application vector icons and top security strip.
+- Explicit incomplete status for coverage limits, errors and unsupported containers; no claim of commercial AV parity.
+
 # Changelog
 
 ## Alpha 0.6

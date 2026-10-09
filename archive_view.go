@@ -43,10 +43,12 @@ func (w *previewWriter) Write(p []byte) (int, error) {
 type extractionSink struct {
 	stage, dest, selected string
 	directoryTimes        map[string]time.Time
+	security              *avRun
+	ctx                   context.Context
 }
 
-func newExtractionSink(dest string) (*extractionSink, error) {
-	s := &extractionSink{dest: dest}
+func newExtractionSink(ctx context.Context, dest string) (*extractionSink, error) {
+	s := &extractionSink{dest: dest, ctx: ctx, security: avFromContext(ctx)}
 	if dest == "" {
 		return s, nil
 	}
@@ -69,12 +71,34 @@ func (s *extractionSink) cleanup() {
 	}
 }
 func (s *extractionSink) directory(name string) error {
+	if s.security != nil {
+		s.security.nameSignals(name)
+	}
 	if s.stage == "" || s.selected != "" {
 		return nil
 	}
 	return os.MkdirAll(filepath.Join(s.stage, filepath.FromSlash(name)), 0700)
 }
 func (s *extractionSink) file(name string) (io.WriteCloser, error) {
+	if factory := entryFactory(s.ctx); factory != nil && (s.selected == "" || s.selected == name) {
+		return factory(name)
+	}
+	if s.security != nil && (s.selected == "" || s.selected == name) {
+		// Re-enter only the ordinary writer branch, then attach an in-memory scanner.
+		plain := *s
+		plain.security = nil
+		target, e := plain.file(name)
+		if e != nil {
+			return nil, e
+		}
+		scan, e := s.security.file(name, 0)
+		if e != nil {
+			target.Close()
+			return nil, e
+		}
+		return &avTeeWriter{target: target, scan: scan}, nil
+	}
+
 	if s.stage == "" || s.selected != "" && s.selected != name {
 		return discardCloser{io.Discard}, nil
 	}
@@ -104,6 +128,16 @@ func (s *extractionSink) directoryTimestamp(name string, t time.Time) {
 func (s *extractionSink) publish(ctx context.Context) error {
 	if e := check(ctx); e != nil {
 		return e
+	}
+	if s.security != nil && s.stage != "" {
+		if e := s.security.requirePermit(); e != nil {
+			return e
+		}
+	}
+	if gate, ok := ctx.Value(avPublishGateKey{}).(avPublishGate); ok {
+		if e := gate(s.stage); e != nil {
+			return e
+		}
 	}
 	if s.stage == "" {
 		return nil

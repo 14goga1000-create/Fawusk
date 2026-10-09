@@ -57,6 +57,7 @@ type uiUpdate struct {
 	folder  bool
 	preview bool
 	entries []archiveEntry
+	av      *avResult
 }
 type point struct{ X, Y int32 }
 type msg struct {
@@ -225,10 +226,12 @@ func layout() {
 	move(idMore, w-m-46, 78, 46, 40)
 	move(idPath, m, 133, full-92, 34)
 	move(idUp, w-m-80, 131, 80, 38)
-	move(idFiles, m, 185, full, h-355)
+	move(idSecurity, m, 185, full-136, 48)
+	move(idSecurityReport, w-m-128, 189, 128, 40)
+	move(idFiles, m, 245, full, h-415)
 	resizeTable(full)
-	move(idEmpty, m, 235, full, 38)
-	move(idEmptyHint, m, 278, full, 44)
+	move(idEmpty, m, 285, full, 38)
+	move(idEmptyHint, m, 328, full, 44)
 	y := h - 128
 	move(idFormatLabel, m, y-30, 250, 22)
 	move(idLevelLabel, m+262, y-30, 155, 22)
@@ -302,12 +305,13 @@ func refresh() {
 	enable.Call(controls[idFormat], boolParam(!busy && (currentKind == "dir" || currentKind == "file")))
 	enable.Call(controls[idLevel], boolParam(!busy && (currentKind == "dir" || currentKind == "file")))
 	enable.Call(controls[idPack], boolParam(!busy && (currentKind == "dir" || currentKind == "file")))
-	enable.Call(controls[idUnpack], boolParam(!busy && currentKind == "archive"))
+	enable.Call(controls[idUnpack], boolParam(!busy && currentKind == "archive" && archiveReady && currentAV != nil && currentAV.permitted()))
+	refreshSecurity()
 	enable.Call(controls[idUp], boolParam(!busy && (currentKind == "dir" || currentKind == "archive")))
 }
 func setBusy(b bool) {
 	busy = b
-	for _, id := range []int{idAdd, idMore, idFormat, idLevel, idFiles, idUp, idPath} {
+	for _, id := range []int{idAdd, idMore, idFormat, idLevel, idFiles, idUp, idPath, idSecurityReport} {
 		enable.Call(controls[id], boolParam(!b))
 	}
 	show(idUnpack, !b)
@@ -316,9 +320,9 @@ func setBusy(b bool) {
 	show(idProgress, b)
 	refresh()
 }
-func notifyScan(e error, a []archiveEntry) {
+func notifyScan(e error, a []archiveEntry, av avResult) {
 	mu.Lock()
-	statusUpdates = append(statusUpdates, uiUpdate{done: true, err: e, scan: true, entries: a})
+	statusUpdates = append(statusUpdates, uiUpdate{done: true, err: e, scan: true, entries: a, av: &av})
 	mu.Unlock()
 	post.Call(mainWindow, wmUpdate, 0, 0)
 }
@@ -340,6 +344,8 @@ func openPath(p string) {
 		message("Открытие", "Ссылки, junction и специальные файлы пока не поддерживаются", 0x40)
 		return
 	}
+	currentAV = nil
+	avPhase = ""
 	currentPath = absolute
 	archivePrefix = ""
 	entries = nil
@@ -372,13 +378,24 @@ func openPath(p string) {
 	}
 	if version != 0 {
 		currentKind = "archive"
+		avPhase = "Проверка архива CustomAV…"
 		refresh()
 		taskKind = "scan"
 		ctx, cancel := context.WithCancel(context.Background())
 		cancelWork = cancel
 		setBusy(true)
 		status("Чтение и проверка архива…")
-		go func() { a, e := scanArchive(ctx, absolute, notify); notifyScan(e, a) }()
+		go func() {
+			a, e := scanArchive(ctx, absolute, notify)
+			if e != nil {
+				r := newRuntimeAV(ctx, notify)
+				r.incomplete("ARCHIVE_CATALOGUE_ERROR", "[archive]", e.Error())
+				notifyScan(e, a, r.finish())
+				return
+			}
+			r := scanSecurity(ctx, absolute, notify)
+			notifyScan(nil, a, r)
+		}()
 		return
 	}
 	currentKind = "file"
@@ -505,10 +522,19 @@ func doPack() {
 	setBusy(true)
 	send.Call(controls[idProgress], 0x402, 0, 0)
 	status("Подготовка…")
-	go func() { e := pack(ctx, inputs, out, format, level, notify); notifyDone(e, out) }()
+	go func() {
+		r, e := securePack(ctx, inputs, out, format, level, notify)
+		mu.Lock()
+		statusUpdates = append(statusUpdates, uiUpdate{done: true, err: e, path: out, av: &r})
+		mu.Unlock()
+		post.Call(mainWindow, wmUpdate, 0, 0)
+	}()
 }
 func doUnpack() {
 	if busy || currentKind != "archive" {
+		return
+	}
+	if !securityActionAllowed("Распаковка") {
 		return
 	}
 	parent := folderDialog("Где создать новую папку с результатом распаковки?")
@@ -533,7 +559,13 @@ func doUnpack() {
 	taskKind = "unpack"
 	setBusy(true)
 	status("Распаковка…")
-	go func() { e := unpack(ctx, input, dest, notify); notifyDone(e, dest) }()
+	go func() {
+		r, e := secureUnpack(ctx, input, dest, notify)
+		mu.Lock()
+		statusUpdates = append(statusUpdates, uiUpdate{done: true, err: e, path: dest, av: &r})
+		mu.Unlock()
+		post.Call(mainWindow, wmUpdate, 0, 0)
+	}()
 }
 func popup(id int, opening bool) {
 	if busy {
@@ -553,6 +585,12 @@ func popup(id int, opening bool) {
 		}
 		addItem(menu, f, 1008, "Папка результата")
 		addItem(menu, 0, 1011, "Добавить .faw в «Открыть с помощью»")
+		flags := uintptr(3)
+		if currentKind == "archive" && currentAV != nil {
+			flags = 0
+		}
+		addItem(menu, flags, 1012, "Отчёт CustomAV…")
+		addItem(menu, flags, 1013, "Сохранить отчёт CustomAV (JSON)…")
 		addItem(menu, 0, 1009, "О Fawusk")
 	}
 	var r rect
@@ -578,6 +616,10 @@ func popup(id int, opening bool) {
 		} else {
 			message("Регистрация FAW", "Fawusk добавлен в список «Открыть с помощью» для .faw.\n\nПриложение по умолчанию не менялось. Выберите Fawusk средствами Windows. Не перемещайте EXE после регистрации.", 0x40)
 		}
+	case 1012:
+		showAVReport()
+	case 1013:
+		saveAVReport()
 	case 1009:
 		message("Fawusk "+appVersion, "Fawusk "+appVersion+"\n\nОдин путь на окно.\nFAW 3: индексированные solid-группы, SHA-256.\nFAW 2: отдельное сжатие файлов.\nЧтение FAW 1/2/3 и ZIP.\n\nПроект развивается как конкурент WinRAR и 7-Zip.\nЭто альфа, превосходство пока не доказано.\nRAR, 7z и шифрование не реализованы.", 0x40)
 	}
@@ -619,6 +661,9 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		control(idPath, "EDIT", "", 0x00800000|0x10000|0x80|0x800)
 		pathOldProc, _, _ = proc(user, "SetWindowLongPtrW").Call(controls[idPath], ^uintptr(3), syscall.NewCallback(pathProc))
 		button(idUp, "Вверх")
+		label(idSecurity, "CustomAV · проверка при открытии архива")
+		send.Call(controls[idSecurity], 0x30, smallFont, 1)
+		button(idSecurityReport, "Отчёт…")
 		initTable()
 		control(idEmpty, "STATIC", "Откройте файл или папку", 1)
 		control(idEmptyHint, "STATIC", "или перетащите один путь в окно", 1)
@@ -651,7 +696,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		layout()
 		return 0
 	case 0x24:
-		minimum := point{scaled(700), scaled(570)}
+		minimum := point{scaled(700), scaled(670)}
 		kernel.NewProc("RtlMoveMemory").Call(lparam+24, uintptr(unsafe.Pointer(&minimum)), unsafe.Sizeof(minimum))
 		return 0
 	case 0x111:
@@ -671,6 +716,8 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 			doPack()
 		case idUnpack:
 			doUnpack()
+		case idSecurityReport:
+			showAVReport()
 		case idExternal:
 			if currentKind == "file" {
 				openExternal(currentPath)
@@ -723,6 +770,18 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 				cancelWork()
 				cancelWork = nil
 			}
+			if v.preview && v.err != nil && currentAV != nil && strings.Contains(v.err.Error(), "Архив изменился") {
+				currentAV.Complete = false
+				currentAV.ScanComplete = false
+				currentAV.Verdict = "INCOMPLETE SCAN / MANUAL REVIEW"
+				currentAV.Findings = append(currentAV.Findings, avFinding{Severity: "medium", Rule: "ARCHIVE_CHANGED", Path: "[archive]", Detail: v.err.Error(), Category: "review"})
+			}
+			if v.av != nil && currentKind == "archive" {
+				currentAV = v.av
+			}
+			if v.scan && !v.folder {
+				avPhase = ""
+			}
 			setBusy(false)
 			if v.err != nil {
 				if errors.Is(v.err, context.Canceled) {
@@ -746,7 +805,11 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 					orderRows(rows, sortColumn, sortDescending)
 				}
 				refresh()
-				status("Данные архива: " + formatBytes(totals(entries).Bytes) + " · Двойной клик — просмотр")
+				if currentAV != nil && !currentAV.permitted() {
+					status("Список доступен · просмотр и распаковка заблокированы CustomAV")
+				} else {
+					status("Данные архива: " + formatBytes(totals(entries).Bytes) + " · Двойной клик — просмотр")
+				}
 			} else if v.preview {
 				openExternal(v.path)
 				status("Открыт только выбранный файл · приложение Windows")
@@ -757,6 +820,9 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		}
 		return 0
 	case 0x138:
+		if lparam == controls[idSecurity] {
+			return securityStatic(wparam)
+		}
 		proc(gdi, "SetBkMode").Call(wparam, 1)
 		color := uintptr(0x002b2c2c)
 		if lparam == controls[idSubtitle] || lparam == controls[idStatus] || lparam == controls[idEmptyHint] {
@@ -788,6 +854,9 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--scan-customav" {
+		os.Exit(runAVCLI(os.Args[1:]))
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--cleanup-preview" {
 		retryPreviewCleanup(os.Args[2:], 2*time.Minute)
 		return
@@ -822,7 +891,7 @@ func main() {
 		message("Fawusk", fmt.Sprint(e), 0x10)
 		return
 	}
-	mainWindow, _, e = createWindow.Call(0, ptr(cl.Class), ptr(u("Fawusk "+appVersion)), 0x00CF0000, 0x80000000, 0x80000000, uintptr(scaled(800)), uintptr(scaled(650)), 0, 0, instance, 0)
+	mainWindow, _, e = createWindow.Call(0, ptr(cl.Class), ptr(u("Fawusk "+appVersion)), 0x00CF0000, 0x80000000, 0x80000000, uintptr(scaled(800)), uintptr(scaled(750)), 0, 0, instance, 0)
 	if mainWindow == 0 {
 		message("Fawusk", fmt.Sprint(e), 0x10)
 		return
@@ -858,6 +927,9 @@ func doPreview(name string) {
 	if busy {
 		return
 	}
+	if !securityActionAllowed("Просмотр файла") {
+		return
+	}
 	if e := previewAllowed(name); e != nil {
 		message("Безопасный просмотр", e.Error(), 0x40)
 		return
@@ -876,13 +948,14 @@ func doPreview(name string) {
 	}
 	previewRoots = append(previewRoots, root)
 	archive := currentPath
+	approved := *currentAV
 	ctx, cancel := context.WithCancel(context.Background())
 	cancelWork = cancel
 	taskKind = "preview"
 	setBusy(true)
 	status("Извлечение выбранного файла…")
 	go func() {
-		p, e := extractSelected(ctx, archive, name, root, notify)
+		p, e := securePreview(ctx, archive, name, root, approved, notify)
 		if e != nil {
 			cleanupPreviewRoot(root)
 		}

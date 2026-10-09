@@ -2,9 +2,9 @@
 --- PASS: TestFourCoreBudget (0.00s)
 === RUN   TestParallelGroupsCPU4
     alpha05_test.go:55: GOMAXPROCS=4 correctness test, mixed STORE/Zstandard; not a physical four-core benchmark
---- PASS: TestParallelGroupsCPU4 (1.17s)
+--- PASS: TestParallelGroupsCPU4 (1.08s)
 === RUN   TestParallelGroupsCancellation
---- PASS: TestParallelGroupsCancellation (0.35s)
+--- PASS: TestParallelGroupsCancellation (0.34s)
 === RUN   TestOwnedTempCleanup
 --- PASS: TestOwnedTempCleanup (0.00s)
 === RUN   TestCleanupLeavesForeignTempAlone
@@ -22,7 +22,7 @@
 --- PASS: TestMetadataAllFormats (0.02s)
     --- PASS: TestMetadataAllFormats/faw1 (0.00s)
     --- PASS: TestMetadataAllFormats/faw2 (0.00s)
-    --- PASS: TestMetadataAllFormats/faw3 (0.00s)
+    --- PASS: TestMetadataAllFormats/faw3 (0.01s)
     --- PASS: TestMetadataAllFormats/zip (0.00s)
     --- PASS: TestMetadataAllFormats/old3 (0.00s)
 === RUN   TestFolderMetadataAndEmptyAccounting
@@ -51,6 +51,80 @@
 --- PASS: TestZIPStrictPathModeAndUnknownDate (0.00s)
 === RUN   TestZIPHarmlessDotPrefixes
 --- PASS: TestZIPHarmlessDotPrefixes (0.00s)
+=== RUN   TestCustomAVClearAndTestSignature
+--- PASS: TestCustomAVClearAndTestSignature (0.00s)
+=== RUN   TestCustomAVNativeRules
+=== RUN   TestCustomAVNativeRules/SCRIPT_CAPABILITY
+=== RUN   TestCustomAVNativeRules/DOUBLE_EXTENSION
+=== RUN   TestCustomAVNativeRules/HIGH_RISK_TEXT
+=== RUN   TestCustomAVNativeRules/UNEXPECTED_URL
+=== RUN   TestCustomAVNativeRules/SCRIPT_FILE
+=== RUN   TestCustomAVNativeRules/PDF_ACTIVE_CONTENT
+=== RUN   TestCustomAVNativeRules/FORMAT_EXTENSION_MISMATCH
+=== RUN   TestCustomAVNativeRules/PE_PARSE_LIMITED
+--- PASS: TestCustomAVNativeRules (0.00s)
+    --- PASS: TestCustomAVNativeRules/SCRIPT_CAPABILITY (0.00s)
+    --- PASS: TestCustomAVNativeRules/DOUBLE_EXTENSION (0.00s)
+    --- PASS: TestCustomAVNativeRules/HIGH_RISK_TEXT (0.00s)
+    --- PASS: TestCustomAVNativeRules/UNEXPECTED_URL (0.00s)
+    --- PASS: TestCustomAVNativeRules/SCRIPT_FILE (0.00s)
+    --- PASS: TestCustomAVNativeRules/PDF_ACTIVE_CONTENT (0.00s)
+    --- PASS: TestCustomAVNativeRules/FORMAT_EXTENSION_MISMATCH (0.00s)
+    --- PASS: TestCustomAVNativeRules/PE_PARSE_LIMITED (0.00s)
+=== RUN   TestCustomAVSignatureDatabase
+--- PASS: TestCustomAVSignatureDatabase (0.00s)
+=== RUN   TestCustomAVNestedZIP
+--- PASS: TestCustomAVNestedZIP (0.01s)
+=== RUN   TestCustomAVIncompleteFormatsAndLimits
+--- PASS: TestCustomAVIncompleteFormatsAndLimits (0.25s)
+=== RUN   TestCustomAVAllFormatsAndPublication
+=== RUN   TestCustomAVAllFormatsAndPublication/faw1
+=== RUN   TestCustomAVAllFormatsAndPublication/faw2
+=== RUN   TestCustomAVAllFormatsAndPublication/faw3
+=== RUN   TestCustomAVAllFormatsAndPublication/zip
+=== RUN   TestCustomAVAllFormatsAndPublication/old3
+--- PASS: TestCustomAVAllFormatsAndPublication (0.08s)
+    --- PASS: TestCustomAVAllFormatsAndPublication/faw1 (0.01s)
+    --- PASS: TestCustomAVAllFormatsAndPublication/faw2 (0.02s)
+    --- PASS: TestCustomAVAllFormatsAndPublication/faw3 (0.04s)
+    --- PASS: TestCustomAVAllFormatsAndPublication/zip (0.01s)
+    --- PASS: TestCustomAVAllFormatsAndPublication/old3 (0.01s)
+=== RUN   TestCustomAVCancellation
+--- PASS: TestCustomAVCancellation (0.00s)
+=== RUN   TestCustomAVHashDoesNotWriteTargets
+--- PASS: TestCustomAVHashDoesNotWriteTargets (0.00s)
+=== RUN   TestAlpha07FileKinds
+--- PASS: TestAlpha07FileKinds (0.00s)
+=== RUN   TestCustomAVInvalidDatabasePath
+--- PASS: TestCustomAVInvalidDatabasePath (0.00s)
+=== RUN   TestCustomAVPreviewAndChangedArchive
+--- PASS: TestCustomAVPreviewAndChangedArchive (0.01s)
+=== RUN   TestCustomAVCorruptZIPIncomplete
+--- PASS: TestCustomAVCorruptZIPIncomplete (0.00s)
+=== RUN   TestMakeReleaseDemo07
+    alpha07_test.go:370: release fixture opt-in
+--- SKIP: TestMakeReleaseDemo07 (0.00s)
+=== RUN   TestFawReaderStreamAndIntegrity
+=== RUN   TestFawReaderStreamAndIntegrity/faw1
+=== RUN   TestFawReaderStreamAndIntegrity/faw2
+=== RUN   TestFawReaderStreamAndIntegrity/faw3
+=== RUN   TestFawReaderStreamAndIntegrity/old3
+--- PASS: TestFawReaderStreamAndIntegrity (0.02s)
+    --- PASS: TestFawReaderStreamAndIntegrity/faw1 (0.00s)
+    --- PASS: TestFawReaderStreamAndIntegrity/faw2 (0.01s)
+    --- PASS: TestFawReaderStreamAndIntegrity/faw3 (0.01s)
+    --- PASS: TestFawReaderStreamAndIntegrity/old3 (0.00s)
+=== RUN   TestFawReaderNestedAndPartialCoverage
+--- PASS: TestFawReaderNestedAndPartialCoverage (0.02s)
+=== RUN   TestFawReaderBadVersionAndSignature
+--- PASS: TestFawReaderBadVersionAndSignature (0.00s)
+=== RUN   TestCustomAVCLIReport
+open /tmp/TestCustomAVCLIReport248833081/001/report.json: file exists
+--- PASS: TestCustomAVCLIReport (0.00s)
+=== RUN   TestCustomAVUnicodeParentMask
+--- PASS: TestCustomAVUnicodeParentMask (0.00s)
+=== RUN   TestCustomAVCorruptEntryNotGreen
+--- PASS: TestCustomAVCorruptEntryNotGreen (0.00s)
 === RUN   TestRoundTrip
 === RUN   TestRoundTrip/zip-level-1
 === RUN   TestRoundTrip/zip-level-6
@@ -58,13 +132,13 @@
 === RUN   TestRoundTrip/faw-level-1
 === RUN   TestRoundTrip/faw-level-6
 === RUN   TestRoundTrip/faw-level-9
---- PASS: TestRoundTrip (0.30s)
+--- PASS: TestRoundTrip (0.31s)
     --- PASS: TestRoundTrip/zip-level-1 (0.02s)
     --- PASS: TestRoundTrip/zip-level-6 (0.04s)
     --- PASS: TestRoundTrip/zip-level-9 (0.05s)
     --- PASS: TestRoundTrip/faw-level-1 (0.02s)
     --- PASS: TestRoundTrip/faw-level-6 (0.02s)
-    --- PASS: TestRoundTrip/faw-level-9 (0.16s)
+    --- PASS: TestRoundTrip/faw-level-9 (0.17s)
 === RUN   TestNoOverwrite
 --- PASS: TestNoOverwrite (0.00s)
 === RUN   TestInsideSource
@@ -72,11 +146,11 @@
 === RUN   TestBadNames
 --- PASS: TestBadNames (0.00s)
 === RUN   TestTraversal
---- PASS: TestTraversal (0.01s)
+--- PASS: TestTraversal (0.00s)
 === RUN   TestDuplicatesAndConflicts
 --- PASS: TestDuplicatesAndConflicts (0.00s)
 === RUN   TestLegacyFAWIntegrity
---- PASS: TestLegacyFAWIntegrity (0.02s)
+--- PASS: TestLegacyFAWIntegrity (0.01s)
 === RUN   TestCRC
 --- PASS: TestCRC (0.00s)
 === RUN   TestCancel
@@ -98,13 +172,13 @@
 === RUN   TestDeclaredSizeLimit
 --- PASS: TestDeclaredSizeLimit (0.00s)
 === RUN   TestFAW2LargeMixedBlocks
---- PASS: TestFAW2LargeMixedBlocks (0.10s)
+--- PASS: TestFAW2LargeMixedBlocks (0.07s)
 === RUN   TestFAW2IntegrityAndTruncation
---- PASS: TestFAW2IntegrityAndTruncation (0.03s)
+--- PASS: TestFAW2IntegrityAndTruncation (0.02s)
 === RUN   TestFAW2MaliciousNames
 --- PASS: TestFAW2MaliciousNames (0.01s)
 === RUN   TestFAW2DeclaredLimitsAndChunkBounds
---- PASS: TestFAW2DeclaredLimitsAndChunkBounds (0.01s)
+--- PASS: TestFAW2DeclaredLimitsAndChunkBounds (0.00s)
 === RUN   TestFAW2ImplicitDirectories
 --- PASS: TestFAW2ImplicitDirectories (0.00s)
 === RUN   TestFAW2DecoderBounds
@@ -116,24 +190,24 @@
 === RUN   TestFAW2NoOverwrite
 --- PASS: TestFAW2NoOverwrite (0.01s)
 === RUN   TestFAW3SolidAndView
---- PASS: TestFAW3SolidAndView (0.55s)
+--- PASS: TestFAW3SolidAndView (0.41s)
 === RUN   TestArchiveViewCompatibility
---- PASS: TestArchiveViewCompatibility (0.08s)
+--- PASS: TestArchiveViewCompatibility (0.04s)
 === RUN   TestFAW3MaliciousRecords
---- PASS: TestFAW3MaliciousRecords (0.06s)
+--- PASS: TestFAW3MaliciousRecords (0.05s)
 === RUN   TestFAW3Corruption
 --- PASS: TestFAW3Corruption (0.02s)
 === RUN   TestRemoteLongUnicodePaths
---- PASS: TestRemoteLongUnicodePaths (0.02s)
+--- PASS: TestRemoteLongUnicodePaths (0.01s)
 === RUN   TestFAW3HeaderQuotas
---- PASS: TestFAW3HeaderQuotas (0.01s)
+--- PASS: TestFAW3HeaderQuotas (0.00s)
 === RUN   TestSolidSimilarFilesBenefit
     faw3_test.go:251: Similar-file synthetic fixture only; not a universal ratio or competitor claim
 --- PASS: TestSolidSimilarFilesBenefit (0.04s)
 === RUN   TestFAW3NonOverwrite
 --- PASS: TestFAW3NonOverwrite (0.00s)
 === RUN   TestIndexedMultiGroupExact
---- PASS: TestIndexedMultiGroupExact (1.08s)
+--- PASS: TestIndexedMultiGroupExact (0.95s)
 === RUN   TestPreviewAllFormats
 === RUN   TestPreviewAllFormats/faw1
 === RUN   TestPreviewAllFormats/faw2
@@ -142,8 +216,8 @@
 === RUN   TestPreviewAllFormats/old3
 --- PASS: TestPreviewAllFormats (0.02s)
     --- PASS: TestPreviewAllFormats/faw1 (0.00s)
-    --- PASS: TestPreviewAllFormats/faw2 (0.01s)
-    --- PASS: TestPreviewAllFormats/faw3 (0.00s)
+    --- PASS: TestPreviewAllFormats/faw2 (0.00s)
+    --- PASS: TestPreviewAllFormats/faw3 (0.01s)
     --- PASS: TestPreviewAllFormats/zip (0.00s)
     --- PASS: TestPreviewAllFormats/old3 (0.00s)
 === RUN   TestPreviewPolicy
@@ -190,6 +264,14 @@
 --- PASS: FuzzZIPCatalogue (0.00s)
     --- PASS: FuzzZIPCatalogue/seed#0 (0.00s)
     --- PASS: FuzzZIPCatalogue/seed#1 (0.00s)
+=== RUN   FuzzCustomAVBytes
+=== RUN   FuzzCustomAVBytes/seed#0
+=== RUN   FuzzCustomAVBytes/seed#1
+=== RUN   FuzzCustomAVBytes/seed#2
+--- PASS: FuzzCustomAVBytes (0.00s)
+    --- PASS: FuzzCustomAVBytes/seed#0 (0.00s)
+    --- PASS: FuzzCustomAVBytes/seed#1 (0.00s)
+    --- PASS: FuzzCustomAVBytes/seed#2 (0.00s)
 === RUN   FuzzSafeName
 === RUN   FuzzSafeName/seed#0
 === RUN   FuzzSafeName/seed#1
@@ -210,7 +292,7 @@
     --- PASS: FuzzFAW2Parser/seed#2 (0.00s)
 === RUN   FuzzFAW3Parser
 === RUN   FuzzFAW3Parser/seed#0
---- PASS: FuzzFAW3Parser (0.01s)
+--- PASS: FuzzFAW3Parser (0.00s)
     --- PASS: FuzzFAW3Parser/seed#0 (0.00s)
 === RUN   FuzzIndexedCatalogue
 === RUN   FuzzIndexedCatalogue/seed#0
@@ -219,4 +301,4 @@
     --- PASS: FuzzIndexedCatalogue/seed#0 (0.00s)
     --- PASS: FuzzIndexedCatalogue/seed#1 (0.00s)
 PASS
-ok  	fawusk	5.106s
+ok  	fawusk	5.016s

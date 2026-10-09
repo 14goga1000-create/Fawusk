@@ -301,6 +301,9 @@ func packFAW3(ctx context.Context, inputs []string, output string, level int, pr
 	if e = check(ctx); e != nil {
 		return e
 	}
+	if e = beforeArchivePublish(ctx, f.Name()); e != nil {
+		return e
+	}
 	if e = publishFile(f.Name(), output); e != nil {
 		return e
 	}
@@ -475,10 +478,10 @@ func walkIndexed(ctx context.Context, p, dest string, progress report, visit ent
 			visit(a.archiveEntry)
 		}
 	}
-	if dest == "" {
+	if dest == "" && avFromContext(ctx) == nil && entryFactory(ctx) == nil {
 		return nil
 	}
-	sink, e := newExtractionSink(dest)
+	sink, e := newExtractionSink(ctx, dest)
 	if e != nil {
 		return e
 	}
