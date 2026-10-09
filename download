@@ -3,3 +3,8 @@
 *.test
 *.tmp
 resource_windows_*.syso
+
+*.syso
+*.part
+__pycache__/
+/docs/test-logs/

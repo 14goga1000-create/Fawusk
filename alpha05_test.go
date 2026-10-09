@@ -170,7 +170,7 @@ func TestCleanupOrphanRecovery(t *testing.T) {
 	}
 }
 func TestAlpha04SampleCompatibility(t *testing.T) {
-	a, e := scanArchive(context.Background(), filepath.Join("examples", "sample-faw4.faw"), nil)
+	a, e := scanArchive(context.Background(), archiveFixture(t, "sample-faw4.faw"), nil)
 	if e != nil || len(a) == 0 {
 		t.Fatal("0.4 sample unreadable", e)
 	}

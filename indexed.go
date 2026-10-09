@@ -473,6 +473,15 @@ func walkIndexed(ctx context.Context, p, dest string, progress report, visit ent
 	if e != nil {
 		return e
 	}
+	if avFromContext(ctx) != nil || entryFactory(ctx) != nil {
+		entries := make([]archiveEntry, 0, len(cat.Entries))
+		for _, entry := range cat.Entries {
+			entries = append(entries, entry.archiveEntry)
+		}
+		if e := validateEditionMetadata(entries); e != nil {
+			return e
+		}
+	}
 	if visit != nil {
 		for _, a := range cat.Entries {
 			visit(a.archiveEntry)

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fawuks entry exposed to CustomAV",
+  "type": "object",
+  "required": ["path", "size", "encrypted"],
+  "properties": {
+    "path": {"type": "string", "minLength": 1},
+    "size": {"type": "integer", "minimum": 0},
+    "compressed_size": {"type": "integer", "minimum": 0},
+    "encrypted": {"type": "boolean"},
+    "is_directory": {"type": "boolean"},
+    "sha256": {"type": "string"}
+  }
+}

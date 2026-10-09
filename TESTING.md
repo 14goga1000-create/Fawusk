@@ -1,33 +1,39 @@
-# Alpha 0.7 delivery checks
+# Alpha 0.7.1 delivery checks
 
-## Environment and totals
-Go 1.27.2, Linux sandbox with 2 vCPU. Windows x64 CGO-disabled build with icon, version resource and long-path/as-invoker manifest. Native GUI EXE checked through Wine 10.0/Xvfb, UTF-8 locale. No actual Windows 10/11 or physical four-core computer was available. EXE is unsigned.
+## Environment
+Go 1.27.2, Linux sandbox with 2 vCPU. Windows x64 CGO-disabled EXE with icon, version resource and long-path/as-invoker manifest. Windows executable/GUI tests run through Wine 10.0/Xvfb with UTF-8 locale, not a real Windows 10/11 computer. EXE is unsigned. No physical four-core or competitor performance benchmark, independent security audit or malware corpus validation is claimed.
 
-- **77 top-level Linux tests passed** with race detector; zero failed. 3 opt-in/demo tests skipped.
-- **82 top-level Windows/Wine tests passed**, including real GUI clear/suspicious/test status and extraction-button checks; zero failed. 4 opt-in/unsupported-environment tests skipped.
+## Results
+Recorded full-release test results are listed below; generated logs are not bundled in the source-only archive. Counts below include top-level Test functions only; fuzz seed cases and subtests are separate.
+
+- Linux: 82 main-package tests plus 5 Faw Edition SDK tests passed with race detector; zero failed. 3 opt-in/demo tests skipped.
+- Windows/Wine: 88 main-package tests plus 5 SDK tests passed; zero failed. 4 opt-in/unsupported-environment tests skipped.
 - Linux and Windows go vet passed.
-- CustomAV byte-parser fuzzing: 10,018 executions, 48 new interesting inputs, no crash, 0.798 seconds. This is short fuzzing, not an independent security audit or malware-detection benchmark.
-- Fuzz seeds are separate from top-level Test counts. Final suite/vet/fuzz logs included in test-logs/.
+- The final native EXE CLI produced a complete all-entry ordinary-FAW report with outer_integrity_ok=true and user_override=false.
 
-## CustomAV and FawReader
-EICAR exact/optional CRLF classification remains test-only with malware/test/review scores separate. Merely mentioning its marker in ordinary documentation is not the exact test file. Additional signature database errors, malformed RE2 rules, scanner file/byte/depth/sample/report limits, cancellation, source changes and corruption cannot yield archive approval.
+Historical alpha 0.7 results describe the earlier strict policy. Short prior fuzzing is not an audit.
 
-Tests cover every FAW representation (1/2/continuous-3/indexed-3), EICAR inside each, ordinary byte-preserving streams, nested FAW and ZIP, bad header/version/checksum, Unicode parent-name masking, selected-entry coverage, independent ZIP fixtures, CRC failures and blocked extraction/new-archive publication. Suspicious originals are unchanged; staging results are not published on failure. FawReader supplies existing validated decoder streams; it is not a second antivirus. Scanner archive-open path does not extract ordinary targets to disk. Nested FAW uses an owned temporary compressed-container file and removes it normally.
+## Added 0.7.1 regressions
+- Actual FawReader.Entries interface on FAW 1/2/indexed-3; exact bytes/size and checked EOF; optional SDK bridge uses the existing detector.
+- Default refusal of harmless suspicious command documentation; explicit SHA/size-bound consent permits extraction and TXT preview while preserving blocked verdict, malware score and override audit fields.
+- Consent rejects changed sources; partial-only approval cannot grant a whole archive. Damaged checksums and traversal still reject publication, including a forged internal consent test. Executable/script preview remains forbidden.
+- An intact 17 MiB file reports incomplete content analysis; explicit risk permits byte-preserving extraction without marking its scan complete.
+- SDK preflights all entries before opening any stream: directories, invalid Windows/traversal/Unicode-control paths, links, size, duplicates and file/parent collisions.
+- Exact stream consumption, unexpected extra bytes, EOF/checksum errors, supplied SHA mismatch, nil reader and cancellation cannot produce a clean SDK result. JSON serialization excludes reader functions.
+- Unknown/incomplete/test/review/malware statuses remain distinct. Review points below blocking thresholds cannot silently become green.
+- SDK ZIP convenience API checks central-directory bounds before zip.NewReader allocation; ordinary ZIP and malformed count/truncation tests.
+- Private-report envelope helpers: round trip, different random salt/nonce, wrong password, authentication tamper, truncation and empty password. Library helpers only; no encrypted-report GUI or quarantine claim.
 
-FawReader.OpenEntry uses a pipe with final decoder completion/error; callers must read to EOF and check the error. List validates format/catalogue/paths and legacy content as appropriate. Existing unsafe-path/name/collision/quota/index/corruption/no-overwrite tests remain in the full suite.
+## GUI and visual inspection
+Automated real native GUI checks cover clear/red/test status, disabled default extraction, risk confirmation decline/accept, enabled extraction after acceptance, retained warning and revocation. Windows are matched by process ID and tests wait for background completion.
 
-The standalone Windows EXE scanner mode was run through Wine and wrote a JSON all-entry report for the ordinary FAW sample: complete, format=faw, 7 file records. The Linux validation executable returned 0 for the ordinary FAW and 3 for the deliberately checksum-damaged copy, which reported incomplete. Delivered sample pack has both archives and reports, **no live malware/EICAR test file**. EICAR is generated only during tests/manual isolated inspection.
+Manual inspection: red suspicion has a visible “Всё равно” button and disabled extraction. Risk dialog defaults to No and explains unchanged structural/type protections. Accepting retains the red state and shows “Снять риск”; damaged archive stays grey with no risk button. No checked archive contents were executed. Harmless fixtures only; no live malware shipped. Prior video/audio/image/PDF/table vector icons, three columns, path navigation and one path per window remain.
 
-## GUI and preview inspection
-Actual native clear, red suspicious, amber EICAR, yellow review/confirmation and grey corrupted-archive states were inspected. Red/grey/test extraction was disabled; catalogue remained inspectable when available. Native video frame/play, audio note, image landscape, PDF and table pictograms were inspected with real short MP4/WAV/PNG/PDF/CSV files. No emoji, shell icon handlers or thumbnails are used. Three table headers, size/date semantics, one path per window and no-overwrite remain.
+Release cover uses an actual native-window capture. All three signed memorandum PDF pages and the cover were individually inspected for legibility, margins and overflow. Project signature is typed ceremonial confirmation, not a handwritten or qualified electronic signature.
 
-Manual FAW preview after full CustomAV approval wrote exactly one content TXT, its bytes matched the original UTF-8-BOM document, and Wine Notepad displayed Cyrillic correctly. Viewer/Fawusk close removed the owned preview root. The TXT association was configured only inside the isolated Wine prefix. Review preview presented an explicit confirmation dialog; declining did not extract or launch the file. External viewers are not sandboxed.
+## Retained checks and limitations
+Full inherited tests cover all FAW variants, nested FAW/ZIP, EICAR test classification, rules/database errors, original byte preservation, publication refusal, CRC/SHA corruption, metadata/date/size and empty entries, independent ZIP/ZIP64/BZip2/Zstandard fixtures, source mutation, safe preview and owned Temp cleanup. Core staging/no-overwrite and capped codec scheduling remain.
 
-GUI integration waits for background folder navigation/scan completion before posting commands or inspecting final button permissions; a changed path/label alone is not an idle signal. Windows are matched by owning PID, avoiding another demo window.
+Content analysis is still bounded to 16 MiB/file, with full file hashing. Default signature database contains EICAR only; broad heuristics can miss threats or flag legitimate files. Unsupported or encrypted nested data remain incomplete, even after explicit operation consent. Actual Windows/DPI/installed viewers, representative large-file speed/RSS, sustained fuzzing and independent review are still required. See CUSTOMAV.md and THIRD_PARTY_NOTICES.md, including the now-supplied CustomAV Faw Edition MIT licence and upstream notice.
 
-## Retained checks and limits
-Existing FAW 3 mixed STORE/Zstandard worker-budget and GOMAXPROCS=4 correctness tests, buffer ownership, cancellation, staged publication, SHA/CRC, safe preview type policy and scoped Temp cleanup/Windows deletion-lock retries remain. These are not tests on four physical CPU cores. Linux source-symlink case is covered; skipped under Wine.
-
-No new throughput/peak-RSS benchmark, competitor comparison, real malware corpus validation, commercial AV parity or independent security audit is claimed. Scanner can miss threats or flag benign programs/text. Only EICAR is in the built-in signature database. Important strict-alpha coverage limit: analysis sample 16 MiB/file; larger files and unsupported/incomplete containers block operations instead of being reported green. Full scanning adds decompression/hashing/legacy passes, so earlier compression/extraction observations do not measure this path.
-
-Actual Windows/DPI/monitors, installed media/Office/PDF software, storage/network/reparse policies, representative large-file resource measurements, sustained fuzzing and independent review remain required. GitHub Actions is supplied but has not run in a published repository. See CUSTOMAV.md, TEMP_CLEANUP.md and ZIP_SUPPORT.md for scope, adapted rules, cleanup best-effort behaviour and unsupported formats.
+Source-only cleanup: runtime code and EXE unchanged; independent ZIP and alpha 0.4 FAW fixtures moved byte-for-byte into test source literals. Clean-tree go test ./... and go vet ./... were rerun. Native Windows tests above refer to the previously checked unchanged release binary.

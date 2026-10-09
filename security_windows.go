@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,10 +13,12 @@ import (
 const (
 	idSecurity       = 129
 	idSecurityReport = 130
+	idRisk           = 131
 )
 
 var currentAV *avResult
 var avPhase string
+var currentConsent *avConsent
 
 func avCaption() string {
 	if currentKind != "archive" {
@@ -44,7 +47,7 @@ func avCaption() string {
 			detail = "Файлы: " + avShort(strings.Join(names, "; "), 78)
 		}
 	}
-	return "  " + currentAV.label() + "\n  " + detail
+	return "  " + avShort(currentAV.label(), 62) + "\n  " + avShort(detail, 65)
 }
 func securityColors() (uint32, uint32) {
 	state := "incomplete"
@@ -63,17 +66,28 @@ func securityColors() (uint32, uint32) {
 	}
 }
 func refreshSecurity() {
+	layout()
+	show(idRisk, currentKind == "archive" && currentAV != nil && currentAV.overridePossible() && (!currentAV.permitted() || currentAV.ReviewSignal > 0))
+	enable.Call(controls[idRisk], boolParam(!busy))
+	caption := "Всё равно"
+	if uiConsentActive() {
+		caption = "Снять риск"
+	}
+	setText.Call(controls[idRisk], ptr(u(caption)))
 	setText.Call(controls[idSecurity], ptr(u(avCaption())))
 	enable.Call(controls[idSecurityReport], boolParam(!busy && currentKind == "archive" && currentAV != nil))
 	proc(user, "InvalidateRect").Call(controls[idSecurity], 0, 1)
 }
 func securityActionAllowed(action string) bool {
+	if uiConsentActive() {
+		return true
+	}
 	if currentAV == nil || !currentAV.permitted() {
 		message("CustomAV", "Операция недоступна до полной проверки без блокирующих находок.\n\n"+avCaption(), 0x30)
 		return false
 	}
 	if currentAV.ReviewSignal > 0 {
-		return message("CustomAV — ручная проверка", "Есть предупреждения CustomAV. Они не доказывают заражение, но требуют проверки.\n\nОперация: "+action+". Продолжить?", 0x34) == 6
+		return message("CustomAV — ручная проверка", "Есть предупреждения CustomAV. Они не доказывают заражение, но требуют проверки.\n\nОперация: "+action+". Продолжить?", 0x134) == 6
 	}
 	return true
 }
@@ -144,4 +158,37 @@ func paintTriangle(dc uintptr, pts []point, c uint32) {
 	proc(gdi, "Polygon").Call(dc, uintptr(unsafe.Pointer(&pts[0])), uintptr(len(pts)))
 	proc(gdi, "SelectObject").Call(dc, oldpen)
 	proc(gdi, "SelectObject").Call(dc, old)
+}
+
+func uiConsentActive() bool {
+	return currentConsent != nil && currentAV != nil && consentPermits(context.WithValue(context.Background(), avConsentKey{}, *currentConsent), *currentAV)
+}
+func uiActionPermitted() bool {
+	return currentAV != nil && (currentAV.permitted() || uiConsentActive())
+}
+func allowRisk() {
+	if currentAV == nil || !currentAV.overridePossible() {
+		return
+	}
+	if uiConsentActive() {
+		currentConsent = nil
+		currentAV.UserOverride = false
+		currentAV.OverrideAt = ""
+		refresh()
+		return
+	}
+	answer := message("Fawusk — открыть на свой риск?", `CustomAV предупредил о подозрениях или неполной проверке. Файлы могут быть опасны.
+
+Разрешение действует только для этого архива в текущем окне. Предупреждение останется в отчёте. Проверки путей, лимитов, шифрования, целостности и запрет прямого запуска программ не отключаются.
+
+Продолжить на свой страх и риск?`, 0x134)
+	if answer != 6 {
+		return
+	}
+	c := riskConsent(*currentAV)
+	currentConsent = &c
+	currentAV.UserOverride = true
+	currentAV.OverrideAt = c.At
+	refresh()
+	status("Разрешение риска активно только для текущего SHA-256 архива")
 }

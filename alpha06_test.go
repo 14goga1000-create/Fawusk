@@ -112,7 +112,7 @@ func TestSizeFormattingAndOrdering(t *testing.T) {
 func TestExternalZIPFixtures(t *testing.T) {
 	for _, name := range []string{"external-store.zip", "external-deflate.zip", "external-bzip2.zip"} {
 		t.Run(name, func(t *testing.T) {
-			p := filepath.Join("testdata", name)
+			p := archiveFixture(t, name)
 			list, e := scanArchive(context.Background(), p, nil)
 			if e != nil || len(list) != 3 {
 				t.Fatal("external listing", e)
@@ -332,7 +332,7 @@ func TestZIPHarmlessDotPrefixes(t *testing.T) {
 }
 
 func FuzzZIPCatalogue(f *testing.F) {
-	b, e := os.ReadFile(filepath.Join("testdata", "external-deflate.zip"))
+	b, e := archiveFixtureBytes("external-deflate.zip")
 	if e != nil {
 		f.Fatal(e)
 	}

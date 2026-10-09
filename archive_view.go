@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fawusk/security/fawsecurity"
 	"io"
 	"os"
 	"path"
@@ -71,6 +72,9 @@ func (s *extractionSink) cleanup() {
 	}
 }
 func (s *extractionSink) directory(name string) error {
+	if (s.security != nil || entryFactory(s.ctx) != nil) && fawsecurity.UnsafePath(name) {
+		return errors.New("CustomAV Faw Edition: опасное имя папки")
+	}
 	if s.security != nil {
 		s.security.nameSignals(name)
 	}
@@ -80,6 +84,9 @@ func (s *extractionSink) directory(name string) error {
 	return os.MkdirAll(filepath.Join(s.stage, filepath.FromSlash(name)), 0700)
 }
 func (s *extractionSink) file(name string) (io.WriteCloser, error) {
+	if (s.security != nil || entryFactory(s.ctx) != nil) && fawsecurity.UnsafePath(name) {
+		return nil, errors.New("CustomAV Faw Edition: опасное имя файла")
+	}
 	if factory := entryFactory(s.ctx); factory != nil && (s.selected == "" || s.selected == name) {
 		return factory(name)
 	}
@@ -129,16 +136,20 @@ func (s *extractionSink) publish(ctx context.Context) error {
 	if e := check(ctx); e != nil {
 		return e
 	}
-	if s.security != nil && s.stage != "" {
-		if e := s.security.requirePermit(); e != nil {
-			return e
-		}
+	if s.security != nil {
+		s.security.result.IntegrityOK = true
 	}
 	if gate, ok := ctx.Value(avPublishGateKey{}).(avPublishGate); ok {
 		if e := gate(s.stage); e != nil {
 			return e
 		}
 	}
+	if s.security != nil && s.stage != "" {
+		if e := s.security.requirePermit(); e != nil {
+			return e
+		}
+	}
+
 	if s.stage == "" {
 		return nil
 	}

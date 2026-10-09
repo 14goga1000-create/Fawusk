@@ -43,6 +43,9 @@ func (r *FawReader) ReadAll(ctx context.Context, consumer func(archiveEntry) (io
 	if e != nil {
 		return e
 	}
+	if e := validateEditionMetadata(entries); e != nil {
+		return e
+	}
 	metadata := make(map[string]archiveEntry, len(entries))
 	for _, entry := range entries {
 		metadata[entry.Name] = entry

@@ -226,8 +226,15 @@ func layout() {
 	move(idMore, w-m-46, 78, 46, 40)
 	move(idPath, m, 133, full-92, 34)
 	move(idUp, w-m-80, 131, 80, 38)
-	move(idSecurity, m, 185, full-136, 48)
-	move(idSecurityReport, w-m-128, 189, 128, 40)
+	riskShown := currentKind == "archive" && currentAV != nil && currentAV.overridePossible() && (!currentAV.permitted() || currentAV.ReviewSignal > 0)
+	if riskShown {
+		move(idSecurity, m, 185, full-238, 48)
+		move(idSecurityReport, w-m-230, 189, 106, 40)
+		move(idRisk, w-m-116, 189, 116, 40)
+	} else {
+		move(idSecurity, m, 185, full-136, 48)
+		move(idSecurityReport, w-m-128, 189, 128, 40)
+	}
 	move(idFiles, m, 245, full, h-415)
 	resizeTable(full)
 	move(idEmpty, m, 285, full, 38)
@@ -305,13 +312,13 @@ func refresh() {
 	enable.Call(controls[idFormat], boolParam(!busy && (currentKind == "dir" || currentKind == "file")))
 	enable.Call(controls[idLevel], boolParam(!busy && (currentKind == "dir" || currentKind == "file")))
 	enable.Call(controls[idPack], boolParam(!busy && (currentKind == "dir" || currentKind == "file")))
-	enable.Call(controls[idUnpack], boolParam(!busy && currentKind == "archive" && archiveReady && currentAV != nil && currentAV.permitted()))
+	enable.Call(controls[idUnpack], boolParam(!busy && currentKind == "archive" && archiveReady && uiActionPermitted()))
 	refreshSecurity()
 	enable.Call(controls[idUp], boolParam(!busy && (currentKind == "dir" || currentKind == "archive")))
 }
 func setBusy(b bool) {
 	busy = b
-	for _, id := range []int{idAdd, idMore, idFormat, idLevel, idFiles, idUp, idPath, idSecurityReport} {
+	for _, id := range []int{idAdd, idMore, idFormat, idLevel, idFiles, idUp, idPath, idSecurityReport, idRisk} {
 		enable.Call(controls[id], boolParam(!b))
 	}
 	show(idUnpack, !b)
@@ -345,6 +352,7 @@ func openPath(p string) {
 		return
 	}
 	currentAV = nil
+	currentConsent = nil
 	avPhase = ""
 	currentPath = absolute
 	archivePrefix = ""
@@ -554,13 +562,20 @@ func doUnpack() {
 		dest = filepath.Join(parent, fmt.Sprintf("%s-%d", base, n))
 	}
 	input := currentPath
+	consent := currentConsent
 	ctx, cancel := context.WithCancel(context.Background())
 	cancelWork = cancel
 	taskKind = "unpack"
 	setBusy(true)
 	status("Распаковка…")
 	go func() {
-		r, e := secureUnpack(ctx, input, dest, notify)
+		var r avResult
+		var e error
+		if consent != nil {
+			r, e = secureUnpackWithConsent(ctx, input, dest, *consent, notify)
+		} else {
+			r, e = secureUnpack(ctx, input, dest, notify)
+		}
 		mu.Lock()
 		statusUpdates = append(statusUpdates, uiUpdate{done: true, err: e, path: dest, av: &r})
 		mu.Unlock()
@@ -664,6 +679,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 		label(idSecurity, "CustomAV · проверка при открытии архива")
 		send.Call(controls[idSecurity], 0x30, smallFont, 1)
 		button(idSecurityReport, "Отчёт…")
+		button(idRisk, "Всё равно")
 		initTable()
 		control(idEmpty, "STATIC", "Откройте файл или папку", 1)
 		control(idEmptyHint, "STATIC", "или перетащите один путь в окно", 1)
@@ -716,6 +732,8 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 			doPack()
 		case idUnpack:
 			doUnpack()
+		case idRisk:
+			allowRisk()
 		case idSecurityReport:
 			showAVReport()
 		case idExternal:
@@ -805,7 +823,7 @@ func wndProc(hwnd uintptr, messageID uint32, wparam, lparam uintptr) uintptr {
 					orderRows(rows, sortColumn, sortDescending)
 				}
 				refresh()
-				if currentAV != nil && !currentAV.permitted() {
+				if currentAV != nil && !uiActionPermitted() {
 					status("Список доступен · просмотр и распаковка заблокированы CustomAV")
 				} else {
 					status("Данные архива: " + formatBytes(totals(entries).Bytes) + " · Двойной клик — просмотр")
@@ -949,13 +967,20 @@ func doPreview(name string) {
 	previewRoots = append(previewRoots, root)
 	archive := currentPath
 	approved := *currentAV
+	consent := currentConsent
 	ctx, cancel := context.WithCancel(context.Background())
 	cancelWork = cancel
 	taskKind = "preview"
 	setBusy(true)
 	status("Извлечение выбранного файла…")
 	go func() {
-		p, e := securePreview(ctx, archive, name, root, approved, notify)
+		var p string
+		var e error
+		if consent != nil {
+			p, e = securePreviewWithConsent(ctx, archive, name, root, approved, *consent, notify)
+		} else {
+			p, e = securePreview(ctx, archive, name, root, approved, notify)
+		}
 		if e != nil {
 			cleanupPreviewRoot(root)
 		}

@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fawusk/security/fawsecurity"
 	"fmt"
 	"hash"
 	"io"
@@ -64,6 +65,9 @@ type avResult struct {
 	ScanScope       string      `json:"scan_scope"`
 	ScanComplete    bool        `json:"scan_complete"`
 	Score           int         `json:"score"`
+	IntegrityOK     bool        `json:"outer_integrity_ok"`
+	UserOverride    bool        `json:"user_override"`
+	OverrideAt      string      `json:"override_at,omitempty"`
 	ReportTruncated bool        `json:"report_truncated"`
 	CheckedAt       string      `json:"checked_at"`
 	Complete        bool        `json:"complete"`
@@ -78,21 +82,26 @@ type avResult struct {
 func (r avResult) blocked() bool   { return r.MalwareSignal > 0 || r.TestSignal > 0 }
 func (r avResult) permitted() bool { return r.Complete && !r.blocked() }
 func (r avResult) state() string {
-	if r.MalwareSignal > 0 {
+	sdkStatus := fawsecurity.StatusFor(fawsecurity.ScanResult{Verdict: "NO POSITIVE MALWARE INDICATORS", MalwareSignal: r.MalwareSignal, TestSignal: r.TestSignal, ReviewSignal: r.ReviewSignal, Incomplete: !r.Complete})
+	_ = sdkStatus
+	if sdkStatus == "blocked" {
 		return "blocked"
 	}
 	if r.TestSignal > 0 {
 		return "test"
 	}
-	if !r.Complete {
+	if sdkStatus == "incomplete" {
 		return "incomplete"
 	}
-	if r.ReviewSignal > 0 {
+	if sdkStatus == "review" {
 		return "review"
 	}
 	return "clear"
 }
 func (r avResult) label() string {
+	if r.UserOverride {
+		return "Риск разрешён пользователем · предупреждения CustomAV сохранены"
+	}
 	switch r.state() {
 	case "blocked":
 		return "Есть подозрительные файлы · распаковка заблокирована"
@@ -108,7 +117,7 @@ func (r avResult) label() string {
 }
 func (r avResult) summary() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s\n\nCustomAV 0.5 · Go port 0.7\nSHA-256 архива: %s\nРазмер архива: %d байт\nПроверено записей файлов: %d\n\n", r.label(), r.ArchiveSHA256, r.ArchiveSize, len(r.Files))
+	fmt.Fprintf(&b, "%s\n\nCustomAV Faw Edition · alpha 0.7.1\nSHA-256 архива: %s\nРазмер архива: %d байт\nПроверено записей файлов: %d\n\n", r.label(), r.ArchiveSHA256, r.ArchiveSize, len(r.Files))
 	for i, f := range r.Findings {
 		if i >= 8 {
 			b.WriteString("Остальные записи — в полном JSON-отчёте.\n")
@@ -142,7 +151,7 @@ type avContextKey struct{}
 func avFromContext(ctx context.Context) *avRun { r, _ := ctx.Value(avContextKey{}).(*avRun); return r }
 func newAVRun(ctx context.Context, db []byte, progress report) *avRun {
 	a := &avRun{ctx: ctx, seen: map[string]bool{}, progress: progress}
-	a.result = avResult{Engine: "CustomAV", Version: "0.5 / Fawusk Go port 0.7", Complete: true, ScanScope: "all_entries", CheckedAt: time.Now().UTC().Format(time.RFC3339), Findings: []avFinding{}, Files: []avFile{}, Limitations: []string{"Static rules only; targets are never executed. Unknown threats can evade detection; heuristic false positives are possible.", "Native adapted port, not the Python reference runtime. PE/JAR/PDF/script/name rules and signature layer are bounded.", "16 MiB analysis sample per file; larger files are hashed fully but marked incomplete. Nested FAW/ZIP up to depth 3 and 1 GiB decoded total; nested RAR/7z/other containers not decoded.", "No cloud, sandbox, commercial reputation or signature update service. Default database contains EICAR only.", "Entropy/packer scoring and Minecraft manifest/allowlist reputation from the reference are not ported."}}
+	a.result = avResult{Engine: "CustomAV", Version: "Faw Edition / native integration alpha 0.7.1", Complete: true, ScanScope: "all_entries", CheckedAt: time.Now().UTC().Format(time.RFC3339), Findings: []avFinding{}, Files: []avFile{}, Limitations: []string{"Static rules only; targets are never executed. Unknown threats can evade detection; heuristic false positives are possible.", "Native adapted port, not the Python reference runtime. PE/JAR/PDF/script/name rules and signature layer are bounded.", "16 MiB analysis sample per file; larger files are hashed fully but marked incomplete. Nested FAW/ZIP up to depth 3 and 1 GiB decoded total; nested RAR/7z/other containers not decoded.", "No cloud, sandbox, commercial reputation or signature update service. Default database contains EICAR only.", "Entropy/packer scoring and Minecraft manifest/allowlist reputation from the reference are not ported."}}
 	if e := a.loadSignatures(avBuiltinDB); e != nil {
 		a.incomplete("BUILTIN_SIGNATURE_ERROR", "[signature-db]", e.Error())
 	}
@@ -298,6 +307,12 @@ func (a *avRun) finish() avResult {
 }
 func (a *avRun) requirePermit() error {
 	r := a.finish()
+	if consentPermits(a.ctx, r) {
+		a.result.UserOverride = true
+		c := a.ctx.Value(avConsentKey{}).(avConsent)
+		a.result.OverrideAt = c.At
+		return nil
+	}
 	if !r.permitted() {
 		return fmt.Errorf("CustomAV: %s", r.label())
 	}
@@ -646,11 +661,13 @@ func scanSecurity(ctx context.Context, p string, progress report) avResult {
 		ctx = context.WithValue(ctx, avContextKey{}, a)
 		e = unpack(ctx, p, "", progress)
 	}
+	a.result.IntegrityOK = e == nil
 	if e != nil {
 		a.incomplete("ARCHIVE_SCAN_ERROR", "[archive]", e.Error())
 	}
 	after, size, e := hashArchive(ctx, p)
 	if e != nil || hash != after || size != n {
+		a.result.IntegrityOK = false
 		a.incomplete("ARCHIVE_CHANGED", "[archive]", "Архив изменён или недоступен во время проверки")
 	}
 	return a.finish()
@@ -701,6 +718,7 @@ func secureUnpack(ctx context.Context, p, dest string, progress report) (avResul
 	gate := avPublishGate(func(_ string) error {
 		after, size, e := hashArchive(ctx, p)
 		if e != nil || h != after || n != size {
+			a.result.IntegrityOK = false
 			a.incomplete("ARCHIVE_CHANGED", "[archive]", "Источник изменился во время распаковки")
 		}
 		return a.requirePermit()
@@ -741,7 +759,7 @@ func avShort(s string, n int) string {
 func securePreview(ctx context.Context, archive, name, root string, approved avResult, progress report) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
-	if !approved.permitted() {
+	if approved.ScanScope != "all_entries" || (!approved.permitted() && !consentPermits(ctx, approved)) {
 		return "", fmt.Errorf("CustomAV: %s", approved.label())
 	}
 	h, n, e := hashArchive(ctx, archive)
@@ -753,10 +771,14 @@ func securePreview(ctx context.Context, archive, name, root string, approved avR
 	}
 	a := newRuntimeAV(ctx, progress)
 	a.result.ScanScope = "selected_entry"
+	a.result.ArchiveSHA256 = h
+	a.result.ArchiveSize = n
+	a.result.ContainerFormat = approved.ContainerFormat
 	ctx = context.WithValue(ctx, avContextKey{}, a)
 	gate := avPublishGate(func(_ string) error {
 		after, size, e := hashArchive(ctx, archive)
 		if e != nil || h != after || n != size {
+			a.result.IntegrityOK = false
 			a.incomplete("ARCHIVE_CHANGED", "[archive]", "Источник изменился во время просмотра")
 		}
 		return a.requirePermit()
